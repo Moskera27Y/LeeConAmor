@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { supabase, SUPABASE_ACTIVO } from '../lib/supabase';
+import { leerRecordar, setRecordar, supabase, SUPABASE_ACTIVO } from '../lib/supabase';
 
 interface Props {
   onListo: () => void;
   onClose: () => void;
+  // bloqueado = puerta de entrada: sin botón Volver (login obligatorio)
+  bloqueado?: boolean;
 }
 
 // Inicio de sesión y registro de padres: correo+contraseña y Google.
-export default function AuthPadres({ onListo, onClose }: Props) {
+export default function AuthPadres({ onListo, onClose, bloqueado }: Props) {
   const [modo, setModo] = useState<'entrar' | 'registro'>('entrar');
   const [email, setEmail] = useState('');
   const [clave, setClave] = useState('');
   const [nombre, setNombre] = useState('');
+  const [recordar, setRecordarUi] = useState(() => leerRecordar());
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
@@ -31,7 +34,8 @@ export default function AuthPadres({ onListo, onClose }: Props) {
     setError('');
     setCargando(true);
     try {
-      const sb = supabase();
+      setRecordar(recordar);
+      const sb = supabase(recordar);
       if (!sb) throw new Error('Sin conexión');
       if (modo === 'registro') {
         const { data, error } = await sb.auth.signUp({
@@ -61,7 +65,8 @@ export default function AuthPadres({ onListo, onClose }: Props) {
   const conGoogle = async () => {
     setError('');
     try {
-      const sb = supabase();
+      setRecordar(recordar);
+      const sb = supabase(recordar);
       if (!sb) throw new Error('Sin conexión');
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
@@ -92,6 +97,17 @@ export default function AuthPadres({ onListo, onClose }: Props) {
         <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@ejemplo.com" />
         <label className="field-label">Contraseña (mínimo 6 letras)</label>
         <input className="field-input" type="password" value={clave} onChange={(e) => setClave(e.target.value)} placeholder="••••••" />
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={recordar}
+            onChange={(e) => {
+              setRecordarUi(e.target.checked);
+              setRecordar(e.target.checked);
+            }}
+          />
+          🔒 Recordar sesión en este aparato
+        </label>
         {error && <div className="mic-status">⚠️ {error}</div>}
         <div className="game-actions">
           <button className="next-btn" onClick={guardar} disabled={cargando || !email || clave.length < 6}>
@@ -100,7 +116,7 @@ export default function AuthPadres({ onListo, onClose }: Props) {
         </div>
         <div className="game-actions">
           <button className="ghost-btn" onClick={conGoogle}>🔵 Seguir con Google</button>
-          <button className="ghost-btn" onClick={onClose}>Volver</button>
+          {!bloqueado && <button className="ghost-btn" onClick={onClose}>Volver</button>}
         </div>
       </div>
     </div>

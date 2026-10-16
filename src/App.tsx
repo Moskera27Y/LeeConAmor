@@ -3,7 +3,7 @@ import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import { ETAPAS, avanzar, generarNivel, type EstadoMotor } from './data/motorNiveles';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
-import { supabase, SUPABASE_ACTIVO } from './lib/supabase';
+import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
 import { useVoice } from './hooks/useVoice';
 import BotMessage from './components/BotMessage';
@@ -36,6 +36,7 @@ function App() {
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [emailNube, setEmailNube] = useState('');
+  const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro'>(SUPABASE_ACTIVO ? 'cargando' : 'fuera');
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
 
   const refrescar = () => {
@@ -57,26 +58,27 @@ function App() {
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
     document.head.appendChild(script);
     // Nube: sesión actual + sincronizar al volver internet
+    // Login obligatorio: sin sesión no se entra al juego.
     const sb = supabase();
     if (sb) {
-      sb.auth.getSession().then(({ data }) => {
-        const em = data?.session?.user?.email || '';
+      const aplicarSesion = (em: string) => {
         setEmailNube(em);
-        if (em) {
-          bajarNube().then(() => refrescar());
-          if (hayPendiente()) sincronizarAhora();
-        }
-      });
-      const { data: sub } = sb.auth.onAuthStateChange((_ev, ses) => {
-        const em = ses?.user?.email || '';
-        setEmailNube(em);
+        setAuth(em ? 'dentro' : 'fuera');
         if (em) {
           bajarNube().then(() => {
             refrescar();
-            sincronizarAhora();
+            if (hayPendiente()) sincronizarAhora();
           });
         }
-      });
+      };
+      emailSesion().then(aplicarSesion);
+      const subs = [supabase(true), supabase(false)].map((c) =>
+        c!.auth.onAuthStateChange((_ev, ses) => {
+          // re-leer de ambos clientes (recordar on/off)
+          emailSesion().then(aplicarSesion);
+          void ses;
+        })
+      );
       const stopVig = vigilarConexion((on) => {
         setEnLinea(on);
         if (on && hayPendiente()) sincronizarAhora();
@@ -85,7 +87,7 @@ function App() {
         try {
           document.head.removeChild(script);
         } catch { /* noop */ }
-        sub.subscription.unsubscribe();
+        subs.forEach((s) => s.data.subscription.unsubscribe());
         stopVig();
       };
     }
@@ -131,6 +133,56 @@ function App() {
   const pressEnd = () => {
     if (pressTimer.current) window.clearTimeout(pressTimer.current);
   };
+
+  const pantallaAcceso = (
+    <div className="app sky">
+      <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
+      <header className="app-header">
+        <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
+        <p className="subtitle">Primero entra papá o mamá 💛</p>
+      </header>
+      <main className="app-main">
+        <AuthPadres
+          bloqueado
+          onListo={() => {
+            emailSesion().then((em) => {
+              setEmailNube(em);
+              setAuth(em ? 'dentro' : 'fuera');
+            });
+          }}
+          onClose={() => {}}
+        />
+      </main>
+    </div>
+  );
+
+  if (SUPABASE_ACTIVO && auth === 'cargando') {
+    return (
+      <div className="app sky">
+        <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
+        <main className="app-main" style={{ textAlign: 'center', paddingTop: '20vh' }}>
+          <div style={{ fontSize: '4rem' }}>🦉</div>
+          <p style={{ color: 'white', fontSize: '1.3rem' }}>Léo está despertando…</p>
+        </main>
+      </div>
+    );
+  }
+
+  if (SUPABASE_ACTIVO && auth === 'fuera') {
+    return pantallaAcceso;
+  }
+
+  if (!SUPABASE_ACTIVO) {
+    return (
+      <div className="app sky">
+        <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
+        <main className="app-main" style={{ textAlign: 'center', paddingTop: '15vh' }}>
+          <div style={{ fontSize: '4rem' }}>🔧</div>
+          <p style={{ color: 'white', fontSize: '1.2rem' }}>La nube no está configurada.<br />Pide al administrador que active el acceso.</p>
+        </main>
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
@@ -284,8 +336,12 @@ function App() {
             setShowAuth(true);
           }}
           onSalirNube={async () => {
-            await supabase()?.auth.signOut();
+            await cerrarSesionNube();
             setEmailNube('');
+            setShowPadres(false);
+            setShowPeques(false);
+            setShowAuth(false);
+            setAuth('fuera');
           }}
         />
       )}

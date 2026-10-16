@@ -94,7 +94,7 @@ export default function ZonaPadres(p: Props) {
           {p.emailNube ? (
             <>
               <span className="peque-stars">☁️ {p.emailNube} {p.enLinea ? '· en línea ✓' : '· sin internet…'}</span>
-              <button className="ghost-btn" onClick={p.onSalirNube}>Salir</button>
+              <button className="ghost-btn" onClick={p.onSalirNube}>🔓 Cerrar sesión</button>
             </>
           ) : (
             <button className="ghost-btn" onClick={p.onNube}>☁️ Guardar en la nube</button>
