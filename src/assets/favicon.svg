@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="45" fill="#667eea" stroke="#764ba2" stroke-width="5"/>
+  <path d="M35 45 L45 55 L65 35" stroke="white" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <circle cx="50" cy="75" r="8" fill="white"/>
+  <text x="50" y="55" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="white" text-anchor="middle">LL</text>
+</svg>
