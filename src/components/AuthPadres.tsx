@@ -34,12 +34,18 @@ export default function AuthPadres({ onListo, onClose }: Props) {
       const sb = supabase();
       if (!sb) throw new Error('Sin conexión');
       if (modo === 'registro') {
-        const { error } = await sb.auth.signUp({
+        const { data, error } = await sb.auth.signUp({
           email: email.trim(),
           password: clave,
           options: { data: { nombre: nombre.trim() || 'Papá/Mamá' } },
         });
         if (error) throw error;
+        if (!data.session) {
+          // Confirm email activado en Supabase: debe abrir su correo
+          setError('¡Cuenta creada! Revisa tu correo y confirma el enlace, luego entra.');
+          setModo('entrar');
+          return;
+        }
       } else {
         const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: clave });
         if (error) throw error;
