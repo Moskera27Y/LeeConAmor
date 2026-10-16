@@ -20,6 +20,25 @@ export function comboLectura(objetivo: string, pista: string): string {
   return `${objetivo}. ${pista}. Repite conmigo.`;
 }
 
+// Guía paso a paso de cada palabra (para hablarSecuencia, sin traslapes).
+export function ejemploGuia(objetivo: string, pista: string): string[] {
+  return ['Escucha con atención.', `${objetivo}. ${pista}.`, 'Ahora tú. Léelo en voz alta.'];
+}
+
+// Plantillas DINÁMICAS con el nombre (se generan vía clon/túnel 1 vez y
+// quedan en caché del navegador + disco del servidor para siempre).
+export function felicitarNombre(nombre: string, objetivo: string): string {
+  return `¡Muy bien, ${nombre}! Dijiste ${objetivo} clarito.`;
+}
+
+export function corregirNombre(nombre: string, pista: string): string {
+  return `Casi, ${nombre}, vamos juntitos, despacio: ${pista}.`;
+}
+
+export function animarNombre(nombre: string): string {
+  return `Tú puedes, ${nombre}. Escucha otra vez e inténtalo.`;
+}
+
 // Saludo con nombre: se genera UNA vez por niño y queda guardado para siempre.
 export function saludoNombre(nombre: string): string {
   return `¡Hola, ${nombre}! Vamos a leer juntitos.`;

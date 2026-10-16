@@ -113,7 +113,7 @@ function App() {
   };
 
   const voiceEnabled = profile?.voiceEnabled ?? true;
-  const { speak, repeat, stop, isSpeaking, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
+  const { speak, hablarSecuencia, repeat, stop, isSpeaking, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
 
   // Generar el saludo con el nombre UNA vez por niño (queda guardado para siempre)
   useEffect(() => {
@@ -290,13 +290,17 @@ function App() {
               onRepeat={repeat}
             />
             <ReadingCard
+              key={`${card.objetivo}-${readingIndex}`}
               objetivo={card.objetivo}
               imagen={card.imagen}
               pista={card.pista}
               nombre={profile.nombre}
               speak={speak}
+              hablarSecuencia={hablarSecuencia}
+              detener={stop}
               isSpeaking={isSpeaking}
               onBien={(p) => setScore((s) => s + p)}
+              onSiguiente={() => setReadingIndex((i) => (i + 1) % cards.length)}
             />
             <div className="game-actions">
               <button className="retry-btn" onClick={() => setReadingIndex((i) => (i + 1) % cards.length)}>➡️ Otra palabrita</button>

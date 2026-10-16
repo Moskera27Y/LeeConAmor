@@ -69,8 +69,15 @@ export function useVoice(enabled: boolean) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cache = useRef(new Map<string, string>());
   const [voiceReady, setVoiceReady] = useState(false);
+  // Cola de habla: cada speak() nuevo invalida al anterior (fin de traslapes)
+  const turnoRef = useRef(0);
+  const fetchCtrl = useRef<AbortController | null>(null);
 
-  const stopTodo = useCallback(() => {
+  const stopTodoBase = useCallback(() => {
+    try {
+      fetchCtrl.current?.abort();
+    } catch { /* noop */ }
+    fetchCtrl.current = null;
     try {
       audioRef.current?.pause();
       audioRef.current = null;
@@ -80,6 +87,11 @@ export function useVoice(enabled: boolean) {
     } catch { /* noop */ }
     setIsSpeaking(false);
   }, []);
+
+  const stopTodo = useCallback(() => {
+    turnoRef.current += 1;
+    stopTodoBase();
+  }, [stopTodoBase]);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -105,12 +117,15 @@ export function useVoice(enabled: boolean) {
   }, []);
 
   const reproducirUrl = useCallback(
-    (url: string, textoRespaldo: string) => {
-      stopTodo();
+    (url: string, textoRespaldo: string, turno: number) => {
+      if (turno !== turnoRef.current) return; // una voz más nueva tomó el turno
+      stopTodoBase();
       setIsSpeaking(true);
       const a = new Audio(url);
       audioRef.current = a;
-      a.onended = () => setIsSpeaking(false);
+      a.onended = () => {
+        if (turno === turnoRef.current) setIsSpeaking(false);
+      };
       a.onerror = () => {
         // Audio dañado: no sonar robot, avisar y dejar reintentar
         setIsSpeaking(false);
@@ -132,42 +147,34 @@ export function useVoice(enabled: boolean) {
     [stopTodo]
   );
 
-  const speak = useCallback(
-    async (texto: string) => {
-      if (!enabled || muted) return;
-      const corto = texto.length > 160 ? texto.slice(0, 160) : texto;
-      lastText.current = corto;
-      const voz = VOZ_UNICA;
+  // Resuelve un texto a URL de audio reproducible (cachés + fijos + backend).
+  // Devuelve null si fue cancelado o falló. Nunca habla por sí sola.
+  const resolverAudio = useCallback(
+    async (corto: string, voz: string, turno: number): Promise<string | null> => {
       const cacheKey = `v4:${voz}:${corto}`;
       if (lastAudio.current && lastAudio.current.texto === corto && lastAudio.current.voz === voz) {
-        reproducirUrl(lastAudio.current.url, corto);
-        setFuente('gemini');
-        setMotivo(null);
-        return;
+        return lastAudio.current.url;
       }
       const enCache = cache.current.get(cacheKey);
       if (enCache) {
         lastAudio.current = { url: enCache, texto: corto, voz };
-        reproducirUrl(enCache, corto);
-        setFuente('gemini');
-        setMotivo(null);
-        return;
+        return enCache;
       }
-      // Audio fijo pregenerado (public/audio): no gasta cuota jamás
       const fijo = AUDIO_FIJO[corto];
       if (fijo) {
         lastAudio.current = { url: fijo, texto: corto, voz };
-        reproducirUrl(fijo, corto);
-        setFuente('gemini');
-        setMotivo(null);
-        return;
+        return fijo;
       }
       try {
+        const ctrl = new AbortController();
+        fetchCtrl.current = ctrl;
         const r = await fetch('/api/voz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ texto: corto, voz }),
+          signal: ctrl.signal,
         });
+        if (turno !== turnoRef.current) return null;
         if (r.ok) {
           const data = await r.json();
           if (data?.audio) {
@@ -178,25 +185,98 @@ export function useVoice(enabled: boolean) {
               if (first) cache.current.delete(first);
             }
             lastAudio.current = { url, texto: corto, voz };
-            reproducirUrl(url, corto);
-            setFuente('gemini');
-            setMotivo(null);
-            return;
+            return url;
           }
         }
         let msg = '';
         try {
           msg = (await r.json())?.error || '';
         } catch { /* noop */ }
-        setMotivo(clasificarError(msg, r.status));
-      } catch {
-        setMotivo('apagado');
+        if (turno === turnoRef.current) setMotivo(clasificarError(msg, r.status));
+        return null;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return null; // cancelado por una voz nueva
+        if (turno === turnoRef.current) setMotivo('apagado');
+        return null;
       }
-      // Sin robot automático: solo voz suave. El adulto reintenta con el botón.
-      setFuente('ninguna');
-      setIsSpeaking(false);
     },
-    [enabled, muted, reproducirUrl]
+    []
+  );
+
+  const speak = useCallback(
+    async (texto: string) => {
+      if (!enabled || muted) return;
+      const turno = turnoRef.current + 1;
+      turnoRef.current = turno;
+      const corto = texto.length > 160 ? texto.slice(0, 160) : texto;
+      lastText.current = corto;
+      const voz = VOZ_UNICA;
+      const url = await resolverAudio(corto, voz, turno);
+      if (turno !== turnoRef.current) return; // otra voz tomó el turno
+      if (!url) {
+        setFuente('ninguna');
+        setIsSpeaking(false);
+        return;
+      }
+      setFuente('gemini');
+      setMotivo(null);
+      reproducirUrl(url, corto, turno);
+    },
+    [enabled, muted, reproducirUrl, resolverAudio]
+  );
+
+  // Habla varios textos en orden, sin traslapes. Si llega un speak() nuevo,
+  // la secuencia se cancela. Resuelve true solo si terminó completa.
+  const hablarSecuencia = useCallback(
+    async (textos: string[]): Promise<boolean> => {
+      if (!enabled || muted) return false;
+      const turno = turnoRef.current + 1;
+      turnoRef.current = turno;
+      const voz = VOZ_UNICA;
+      for (const t of textos) {
+        if (turno !== turnoRef.current) return false;
+        const corto = t.length > 160 ? t.slice(0, 160) : t;
+        lastText.current = corto;
+        const url = await resolverAudio(corto, voz, turno);
+        if (turno !== turnoRef.current || !url) return false;
+        setFuente('gemini');
+        setMotivo(null);
+        const ok = await new Promise<boolean>((fin) => {
+          if (turno !== turnoRef.current) return fin(false);
+          stopTodoBase();
+          setIsSpeaking(true);
+          const a = new Audio(url);
+          audioRef.current = a;
+          a.onended = () => {
+            if (turno === turnoRef.current) setIsSpeaking(false);
+            fin(turno === turnoRef.current);
+          };
+          a.onerror = () => {
+            if (turno === turnoRef.current) {
+              setIsSpeaking(false);
+              setFuente('ninguna');
+              setMotivo('otro');
+            }
+            fin(false);
+          };
+          a.play().catch((err: any) => {
+            if (err?.name === 'NotAllowedError' && turno === turnoRef.current) {
+              setNecesitaToque(true);
+              setIsSpeaking(false);
+            } else if (turno === turnoRef.current) {
+              setIsSpeaking(false);
+              setFuente('ninguna');
+              setMotivo('otro');
+            }
+            fin(false);
+          });
+        });
+        if (!ok) return false;
+        await new Promise((r) => setTimeout(r, 250)); // respiro entre frases
+      }
+      return true;
+    },
+    [enabled, muted, resolverAudio, stopTodoBase]
   );
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
@@ -216,7 +296,7 @@ export function useVoice(enabled: boolean) {
   const repeat = useCallback(() => {
     setNecesitaToque(false);
     if (lastAudio.current) {
-      reproducirUrl(lastAudio.current.url, lastAudio.current.texto);
+      reproducirUrl(lastAudio.current.url, lastAudio.current.texto, turnoRef.current);
       return;
     }
     if (lastText.current) speak(lastText.current);
@@ -263,5 +343,5 @@ export function useVoice(enabled: boolean) {
     });
   }, [stopTodo]);
 
-  return { speak, repeat, stop: stopTodo, isSpeaking, muted, toggleMute, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
+  return { speak, hablarSecuencia, repeat, stop: stopTodo, isSpeaking, muted, toggleMute, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
 }

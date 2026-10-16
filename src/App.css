@@ -395,6 +395,16 @@
   opacity: .85;
 }
 
+.reading-fase {
+  background: #f3efff;
+  border-radius: 12px;
+  padding: .5rem 1rem;
+  margin: .6rem 0;
+  font-weight: 700;
+  color: #764ba2;
+  animation: pulse 1.5s infinite;
+}
+
 /* Barra de volumen del micrófono */
 .vol-wrap { text-align: center; margin-top: .8rem; }
 .vol-bar { height: 14px; background: #eee; border-radius: 7px; overflow: hidden; }

@@ -2,17 +2,26 @@
 
 ## 🔊 Voz clonada de Léo en la nube (para que funcione siempre en Vercel)
 
-El clon local (`server/voz-clon/`) no cabe en Vercel. Para que la voz clonada
-funcione en la página publicada:
+El clon local (`server/voz-clon/`) no cabe en Vercel. Opciones:
 
-1. Crea un **Space** gratis en https://huggingface.co/spaces → New Space →
-   SDK **Docker** → sube TODO el contenido de la carpeta `voz-clon-space/`
-   (`Dockerfile`, `app.py`, `requirements.txt`, `README.md`, `referencia-leo.wav`).
-2. Espera a que el Space diga **Running** (la primera vez descarga el modelo ~2GB).
-3. Copia la URL del Space, ej: `https://tu-usuario-voz-leo.hf.space`.
-4. En **Vercel → tu proyecto → Settings → Environment Variables** agrega:
-   `CLON_URL=https://tu-usuario-voz-leo.hf.space` → Redeploy.
-5. (Local) también puedes poner `CLON_URL` en tu `.env.local`.
+### Opción A — Túnel Cloudflare a tu PC (recomendado, gratis, URL fija)
+1. `cloudflared` ya se instala con `tunel-voz.bat` (doble clic).
+2. **Una sola vez**, en tu terminal: `cloudflared login` (abre el navegador,
+   autoriza con tu cuenta Cloudflare gratuita) y luego:
+   `cloudflared tunnel create leo-voz` y
+   `cloudflared tunnel route dns leo-voz voz.tudominio.com`
+   (necesitas un dominio; si no tienes, usa la Opción B temporal).
+3. Para dejarlo siempre prendido: `cloudflared service install` o mantén
+   `tunel-voz.bat` abierto. Copia la URL fija a `CLON_URL` (ver abajo).
+
+### Opción B — Túnel rápido temporal (probar, URL cambia cada vez)
+Doble clic a `tunel-voz.bat`, copia la URL `https://....trycloudflare.com`.
+
+### Opción C — Hugging Face Space (si tienes plan con Docker)
+Sube `voz-clon-space/` como Space Docker y usa su URL.
+
+En **Vercel → tu proyecto → Settings → Environment Variables** agrega:
+`CLON_URL=<tu url fija>` → Redeploy. (Local: también en `.env.local`.)
 
 Cadena de voz resultante: audios fijos → clon en la nube → Gemini → voz nativa.
 Además los saludos (`¡Hola, {nombre}!`) de 40 nombres comunes ya vienen
