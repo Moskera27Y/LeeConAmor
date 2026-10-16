@@ -1,0 +1,8 @@
+torch==2.5.1
+torchaudio==2.5.1
+TTS
+fastapi
+uvicorn[standard]
+soundfile
+numpy
+"transformers<4.49"

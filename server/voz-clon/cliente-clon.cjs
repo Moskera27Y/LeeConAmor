@@ -1,17 +1,22 @@
-// Clon local de la voz de Léo (XTTS-v2, español). Gratis, sin claves ni cuotas.
-// Uso: prender con iniciar-voz-clon.bat (puerto 7860).
-// El backend Node lo usa solo cuando el audio no está en fijos ni caché.
+// Clon de la voz de Léo: primero el Space en la nube (CLON_URL) y si no
+// responde, el servicio local http://127.0.0.1:7860. Gratis, sin cuotas.
 let clonListo = false;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function baseClon() {
+  const remoto = (process.env.CLON_URL || '').replace(/\/$/, '');
+  return remoto || 'http://127.0.0.1:7860';
+}
+
 async function clonarLocal(texto) {
   const cuerpo = JSON.stringify({ texto: String(texto).slice(0, 160) });
+  const base = baseClon();
   for (let intento = 1; intento <= 4; intento++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 300000);
     try {
-      const r = await fetch('http://127.0.0.1:7860/clonar', {
+      const r = await fetch(`${base}/clonar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: cuerpo,
@@ -39,7 +44,7 @@ async function clonarLocal(texto) {
 
 async function clonSalud() {
   try {
-    const r = await fetch('http://127.0.0.1:7860/salud', { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`${baseClon()}/salud`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return false;
     clonListo = true;
     return true;

@@ -5,6 +5,7 @@
     "dev": "vite",
     "api:dev": "node server/local-transcribe-server.cjs",
     "voz:precache": "node server/precache-voz.cjs",
+    "voz:nombres": "node server/precache-nombres.cjs",
     "todo": "concurrently -n api,web -c magenta,cyan \"npm:api:dev\" \"npm:dev\"",
     "build": "vite build",
     "preview": "vite preview"

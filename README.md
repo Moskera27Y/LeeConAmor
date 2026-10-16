@@ -1,5 +1,23 @@
 # LeeConAmor - Web App de Enseñanza de Lectura ✅
 
+## 🔊 Voz clonada de Léo en la nube (para que funcione siempre en Vercel)
+
+El clon local (`server/voz-clon/`) no cabe en Vercel. Para que la voz clonada
+funcione en la página publicada:
+
+1. Crea un **Space** gratis en https://huggingface.co/spaces → New Space →
+   SDK **Docker** → sube TODO el contenido de la carpeta `voz-clon-space/`
+   (`Dockerfile`, `app.py`, `requirements.txt`, `README.md`, `referencia-leo.wav`).
+2. Espera a que el Space diga **Running** (la primera vez descarga el modelo ~2GB).
+3. Copia la URL del Space, ej: `https://tu-usuario-voz-leo.hf.space`.
+4. En **Vercel → tu proyecto → Settings → Environment Variables** agrega:
+   `CLON_URL=https://tu-usuario-voz-leo.hf.space` → Redeploy.
+5. (Local) también puedes poner `CLON_URL` en tu `.env.local`.
+
+Cadena de voz resultante: audios fijos → clon en la nube → Gemini → voz nativa.
+Además los saludos (`¡Hola, {nombre}!`) de 40 nombres comunes ya vienen
+precacheados: `npm run voz:nombres` (requiere backend + clon prendidos).
+
 ## 📚 Proyecto Creado
 
 **Ubicación**: `C:/Users/user/Desktop/LeeConAmor/`

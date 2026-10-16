@@ -64,6 +64,34 @@ export default async function handler(req: any, res: any) {
     res.status(200).json({ ...hit, cache: true });
     return;
   }
+  // 1. Clon remoto (Hugging Face Space, voz de Léo sin gastar cuota).
+  //    Define CLON_URL en Vercel, ej: https://tu-usuario-voz-leo.hf.space
+  const clonUrl = (process.env.CLON_URL || '').replace(/\/$/, '');
+  if (clonUrl) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 120000);
+      const rc = await fetch(`${clonUrl}/clonar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (rc.ok) {
+        const dc = (await rc.json()) as any;
+        if (dc?.audio) {
+          const full = { audio: dc.audio, mime: dc.mime || 'audio/wav', voz, clon: true };
+          CACHE.set(ck, full);
+          if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value as string);
+          res.status(200).json({ ...full, cache: false });
+          return;
+        }
+      }
+    } catch {
+      // sigue a Gemini
+    }
+  }
   try {
     let ultimoError = 'Ningun modelo de voz disponible';
     let ultimoStatus = 500;
