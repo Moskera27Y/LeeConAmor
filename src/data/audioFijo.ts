@@ -1,4 +1,4 @@
-// Generado por npm run voz:precache / voz:nombres. No editar a mano.
+// Generado por npm run voz:precache. No editar a mano.
 export const AUDIO_FIJO: Record<string, string> = {
   "Hola, soy Léo. Vamos a leer juntitos con amor.": "/audio/f5c3b58deb20c.wav",
   "Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.": "/audio/f88e26f7372d5.wav",
@@ -80,5 +80,7 @@ export const AUDIO_FIJO: Record<string, string> = {
   "¡Hola, Emiliano! Vamos a leer juntitos.": "/audio/n6ebec23ba254.wav",
   "¡Hola, Facundo! Vamos a leer juntitos.": "/audio/n86fa87cc7239.wav",
   "¡Hola, Gabriel! Vamos a leer juntitos.": "/audio/n69beb365fdc3.wav",
-  "¡Hola, Lucas! Vamos a leer juntitos.": "/audio/n06ec807c82c9.wav"
+  "¡Hola, Lucas! Vamos a leer juntitos.": "/audio/n06ec807c82c9.wav",
+  "¡Increíble! Subiste de etapa. Vamos por más. 🎉": "/audio/f2aedd0a2b781.wav",
+  "¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector. 🎓": "/audio/fe9287744442c.wav"
 };
