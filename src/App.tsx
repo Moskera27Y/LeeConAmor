@@ -21,6 +21,10 @@ declare global {
   }
 }
 
+function esNavegador(): boolean {
+  return typeof window !== 'undefined';
+}
+
 function App() {
   const [profile, setProfile] = useState<ChildProfile | null>(null);
   const [perfiles, setPerfiles] = useState<ChildProfile[]>([]);
@@ -57,8 +61,9 @@ function App() {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
     document.head.appendChild(script);
-    // Nube: sesión actual + sincronizar al volver internet
-    // Login obligatorio: sin sesión no se entra al juego.
+
+    if (!esNavegador()) return;
+
     const sb = supabase();
     if (sb) {
       const initAuth = async () => {
@@ -67,7 +72,7 @@ function App() {
         setEmailNube(email);
         setAuth(email ? 'dentro' : 'fuera');
         if (email) {
-          await bajarNube().then(() => {
+          bajarNube().then(() => {
             refrescar();
             if (hayPendiente()) sincronizarAhora();
           });
@@ -221,7 +226,9 @@ function App() {
     if (subioEtapa) {
       speak(F_ETAPA_SUPERADA);
       try {
-        window.confetti?.({ particleCount: 80, spread: 100, origin: { y: 0.6 } });
+        if (esNavegador()) {
+          window.confetti?.({ particleCount: 80, spread: 100, origin: { y: 0.6 } });
+        }
       } catch { /* noop */ }
     }
   };

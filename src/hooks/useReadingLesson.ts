@@ -33,7 +33,7 @@ declare global {
 }
 
 function esNavegador(): boolean {
-  return typeof window !== 'undefined' && typeof window.webkitSpeechRecognition !== 'undefined';
+  return typeof window !== 'undefined' && typeof (window as any).webkitSpeechRecognition !== 'undefined';
 }
 
 async function transcribeWithWhisper(blob: Blob, objetivo: string): Promise<string | null> {
@@ -61,6 +61,7 @@ async function transcribeConReintento(blob: Blob, objetivo: string): Promise<str
 
 function listenNative(timeoutMs = 6000): Promise<string | null> {
   return new Promise((resolve) => {
+    if (!esNavegador()) return resolve(null);
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return resolve(null);
     try {
@@ -130,6 +131,7 @@ export function useReadingLesson(objetivo: string) {
   // Graba con detección de voz: empieza al oír al niño y corta con 1s de
   // silencio (máx 8s). Sin VAD del navegador no hay forma fiable: esto es local.
   const grabarConVAD = useCallback(async (stream: MediaStream): Promise<Blob> => {
+    if (!esNavegador()) return new Blob([]);
     chunks.current = [];
     const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined });
     mediaRef.current = mr;
@@ -156,7 +158,6 @@ export function useReadingLesson(objetivo: string) {
       let empezo = false;
       let silencioDesde = 0;
       const inicio = Date.now();
-      let ultimoVol = 0;
       await new Promise<void>((listo) => {
         mr.start();
         const vigilar = () => {
@@ -196,7 +197,7 @@ export function useReadingLesson(objetivo: string) {
 
   const grabarYEvaluar = useCallback(async () => {
     // Intenta MediaRecorder + Whisper, con fallback nativo
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!esNavegador() || !navigator.mediaDevices?.getUserMedia) {
       const t = await listenNative();
       return evaluar(t);
     }
