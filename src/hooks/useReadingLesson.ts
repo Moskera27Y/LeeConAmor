@@ -32,6 +32,10 @@ declare global {
   }
 }
 
+function esNavegador(): boolean {
+  return typeof window !== 'undefined' && typeof window.webkitSpeechRecognition !== 'undefined';
+}
+
 async function transcribeWithWhisper(blob: Blob, objetivo: string): Promise<string | null> {
   try {
     const form = new FormData();

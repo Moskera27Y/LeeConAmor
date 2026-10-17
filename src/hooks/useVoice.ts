@@ -4,7 +4,13 @@ import { AUDIO_FIJO } from '../data/audioFijo';
 
 export type MotivoVoz = null | 'apagado' | 'key' | 'cuota' | 'otro';
 
+// Helper: verificar si estamos en el navegador (cliente)
+function esNavegador(): boolean {
+  return typeof window !== 'undefined' && typeof window.speechSynthesis !== 'undefined';
+}
+
 function pickSpanishVoice(): SpeechSynthesisVoice | null {
+  if (!esNavegador()) return null;
   try {
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
@@ -23,6 +29,10 @@ function pickSpanishVoice(): SpeechSynthesisVoice | null {
 }
 
 function speakNativo(texto: string, onStart: () => void, onEnd: () => void) {
+  if (!esNavegador()) {
+    onEnd();
+    return;
+  }
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
@@ -82,9 +92,11 @@ export function useVoice(enabled: boolean) {
       audioRef.current?.pause();
       audioRef.current = null;
     } catch { /* noop */ }
-    try {
-      window.speechSynthesis.cancel();
-    } catch { /* noop */ }
+    if (esNavegador()) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch { /* noop */ }
+    }
     setIsSpeaking(false);
   }, []);
 
@@ -94,10 +106,12 @@ export function useVoice(enabled: boolean) {
   }, [stopTodoBase]);
 
   useEffect(() => {
-    if (!('speechSynthesis' in window)) return;
+    if (!esNavegador()) return;
     const load = () => {
-      window.speechSynthesis.getVoices();
-      setVoiceReady(true);
+      try {
+        window.speechSynthesis.getVoices();
+        setVoiceReady(true);
+      } catch { /* noop */ }
     };
     load();
     window.speechSynthesis.onvoiceschanged = load;
@@ -106,14 +120,10 @@ export function useVoice(enabled: boolean) {
   }, []);
 
   const sonarNativa = useCallback((texto: string) => {
-    if ('speechSynthesis' in window) {
-      setFuente('nativa');
-      setIsSpeaking(true);
-      speakNativo(texto, () => setIsSpeaking(true), () => setIsSpeaking(false));
-    } else {
-      setFuente('ninguna');
-      setIsSpeaking(false);
-    }
+    if (!esNavegador()) return;
+    setFuente('nativa');
+    setIsSpeaking(true);
+    speakNativo(texto, () => setIsSpeaking(true), () => setIsSpeaking(false));
   }, []);
 
   const reproducirUrl = useCallback(
@@ -281,6 +291,7 @@ export function useVoice(enabled: boolean) {
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
   useEffect(() => {
+    if (!esNavegador()) return;
     const desbloquear = () => {
       setNecesitaToque(false);
       if (lastText.current) speak(lastText.current);
