@@ -61,33 +61,42 @@ function App() {
     // Login obligatorio: sin sesión no se entra al juego.
     const sb = supabase();
     if (sb) {
-      const aplicarSesion = (em: string) => {
-        setEmailNube(em);
-        setAuth(em ? 'dentro' : 'fuera');
-        if (em) {
-          bajarNube().then(() => {
+      const initAuth = async () => {
+        const { data: { session } } = await sb.auth.getSession();
+        const email = session?.user?.email || '';
+        setEmailNube(email);
+        setAuth(email ? 'dentro' : 'fuera');
+        if (email) {
+          await bajarNube().then(() => {
             refrescar();
             if (hayPendiente()) sincronizarAhora();
           });
         }
       };
-      emailSesion().then(aplicarSesion);
-      const subs = [supabase(true), supabase(false)].map((c) =>
-        c!.auth.onAuthStateChange((_ev, ses) => {
-          // re-leer de ambos clientes (recordar on/off)
-          emailSesion().then(aplicarSesion);
-          void ses;
-        })
-      );
+      initAuth();
+
+      const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
+        const email = session?.user?.email || '';
+        setEmailNube(email);
+        setAuth(email ? 'dentro' : 'fuera');
+        if (email) {
+          await bajarNube().then(() => {
+            refrescar();
+            if (hayPendiente()) sincronizarAhora();
+          });
+        }
+      });
+
       const stopVig = vigilarConexion((on) => {
         setEnLinea(on);
         if (on && hayPendiente()) sincronizarAhora();
       });
+
       return () => {
         try {
           document.head.removeChild(script);
         } catch { /* noop */ }
-        subs.forEach((s) => s.data.subscription.unsubscribe());
+        sub.subscription.unsubscribe();
         stopVig();
       };
     }
