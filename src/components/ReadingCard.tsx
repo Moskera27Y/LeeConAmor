@@ -1,17 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useReadingLesson } from '../hooks/useReadingLesson';
-import {
-  F_BIEN_LECTURA,
-  F_BUEN_ESFUERZO,
-  F_BUEN_INTENTO,
-  F_ESCUCHA_LEE,
-  F_NO_ESCUCHE,
-  animarNombre,
-  comboLectura,
-  corregirNombre,
-  ejemploGuia,
-  felicitarNombre,
-} from '../data/frases';
+import { F_BIEN_LECTURA, F_BUEN_ESFUERZO, F_BUEN_INTENTO, F_ESCUCHA_LEE, F_NO_ESCUCHE, comboLectura, felicitarNombre } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -26,8 +15,7 @@ interface Props {
   onSiguiente: () => void;
 }
 
-// Lección guiada: ejemplo → el niño repite → corrección amable → avance auto.
-export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, hablarSecuencia, detener, isSpeaking, onBien, onSiguiente }: Props) {
+export default function ReadingCard({ objetivo = '', imagen = '', pista = '', nombre = '', speak = () => {}, hablarSecuencia = async () => false, detener = () => {}, isSpeaking = false, onBien = () => {}, onSiguiente }: Props) {
   const { grabando, evaluando, oido, intentos, volumen, grabarYEvaluar, reset } = useReadingLesson(objetivo);
   const [lejos, setLejos] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -43,7 +31,6 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
 
   const bloqueado = ocupado || grabando || evaluando || isSpeaking;
 
-  // 🔊 Escucha: guía completa con ejemplo claro, sin traslapes
   const escuchar = async () => {
     if (bloqueado) return;
     setOcupado(true);
@@ -53,7 +40,6 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
     setFase('');
   };
 
-  // 🎤 Leer: Léo avisa, escucha al niño, corrige amable o celebra y avanza solo
   const leer = async () => {
     if (bloqueado) return;
     setOcupado(true);
@@ -62,7 +48,7 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
     if (!avisoOk) {
       setOcupado(false);
       setFase('');
-      return; // el adulto/niño tocó otra cosa: no grabar encima
+      return;
     }
     setFase('');
     const r = await grabarYEvaluar();
@@ -74,7 +60,7 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
       setOcupado(false);
       setFase('');
       if (finOk) {
-        await new Promise((res) => setTimeout(res, 1200)); // celebra antes de avanzar
+        await new Promise((res) => setTimeout(res, 1200));
         onSiguiente();
       }
       return;
@@ -84,7 +70,7 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
       setFase('');
       speak(F_NO_ESCUCHE);
     } else if (r.dist <= 3) {
-      // Casi: corrección amable con su nombre
+      // Tono 2: casi lo logra — animar a repetir
       setLejos(false);
       setFase('Casi, casi…');
       speak(corregirNombre(nombre, pista));
@@ -98,6 +84,7 @@ export default function ReadingCard({ objetivo, imagen, pista, nombre, speak, ha
       setFase('');
       speak(intentos % 2 === 0 ? animarNombre(nombre) : F_BUEN_INTENTO);
     }
+    setFase((f) => (f === 'Casi, casi…' ? f : f));
   };
 
   return (

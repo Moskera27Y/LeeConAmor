@@ -4,7 +4,7 @@ import BotMessage from './BotMessage';
 
 declare global {
   interface Window {
-    confetti?: any;
+    confetti?: (...args: any[]) => void;
   }
 }
 
@@ -27,7 +27,7 @@ const PRAISE = ['¡Muy bien! 🎉', '¡Genial! ⭐', '¡Súper! 🌈', '¡Hermos
 
 async function boomConfetti(colores?: string[]) {
   try {
-    if (window.confetti) {
+    if (typeof window !== 'undefined' && window.confetti) {
       window.confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 }, colors: colores });
       return;
     }
@@ -36,7 +36,7 @@ async function boomConfetti(colores?: string[]) {
   } catch { /* noop */ }
 }
 
-export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isSpeaking, score, setScore, onProgress, onRepeat, onResultado, onAvanzar, tituloNivel }: Props) {
+export default function LetterGame({ levels = [], nombre = '', speak = () => {}, hablarSecuencia = async () => false, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel }: Props) {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [letters, setLetters] = useState<string[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
@@ -48,11 +48,11 @@ export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isS
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
   const [reportado, setReportado] = useState<number[]>([]);
 
-  const config: Level = levels.find((l) => l.id === currentLevel) || levels[0];
+  const config: Level = levels.find((l) => l.id === currentLevel) || levels[0] || { targetLetters: [], instruction: '', reward: '', phonetics: {} };
 
   const generateLetters = useCallback(() => {
-    const targets = config.targetLetters;
-    const distractores = config.distractores;
+    const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
+    const distractores = Array.isArray(config.distractores) ? config.distractores : [];
     // Mostrar objetivo + 3 distractores = 4 letras
     const mix = [...targets, ...distractores].sort(() => Math.random() - 0.5);
     setLetters(mix);
@@ -61,7 +61,7 @@ export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isS
     setFoundWords([]);
     // Hablado: solo la instrucción fija (pregrabada)
     setBotTipo('info');
-    setBotTexto(config.instruction);
+    setBotTexto(config.instruction || '');
     speak(config.instruction);
   }, [config, speak]);
 
@@ -76,7 +76,7 @@ export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isS
   }, [completedLevels.length]);
 
   const isLevelComplete = () => {
-    const targets = config.targetLetters;
+    const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
     return targets.every((t) => selectedLetters.includes(t)) && selectedLetters.length >= Math.min(3, targets.length);
   };
 
@@ -98,7 +98,8 @@ export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isS
     if (isLevelComplete() || selectedLetters.includes(letter)) return;
     if (wrongLetters.includes(letter)) return;
 
-    if (config.targetLetters.includes(letter)) {
+    const targets = config.targetLetters;
+    if (targets.includes(letter)) {
       const next = [...selectedLetters, letter];
       setSelectedLetters(next);
       const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
@@ -204,7 +205,7 @@ export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isS
           {!complete ? '🔒 Termina primero' : !onAvanzar && currentLevel >= levels.length ? '🎉 JUGAR OTRA VEZ' : 'SIGUIENTE NIVEL →'}
         </button>
       </div>
-      <div className="score-hint">Puntaje actual: {score} (acierto +10, error -5 sin bajar de 0)</div>
+      <div className="score-hint">Puntuación actual: {score} (acierto +10, error -5 sin bajar de 0)</div>
     </div>
   );
 }

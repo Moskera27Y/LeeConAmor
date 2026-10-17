@@ -57,12 +57,12 @@ function App() {
   };
 
   useEffect(() => {
+    if (!esNavegador()) return;
+
     refrescar();
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
     document.head.appendChild(script);
-
-    if (!esNavegador()) return;
 
     const sb = supabase();
     if (sb) {
