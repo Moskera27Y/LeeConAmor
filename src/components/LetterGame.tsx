@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Level } from '../data/curriculum';
-import { F_ERROR_CASI, F_FELICIDADES_FIN, F_NIVEL_OK } from '../data/frases';
 import BotMessage from './BotMessage';
 
 declare global {
@@ -13,13 +12,13 @@ interface Props {
   levels: Level[];
   nombre: string;
   speak: (t: string) => void;
+  hablarSecuencia: (t: string[]) => Promise<boolean>;
   isSpeaking: boolean;
   score: number;
   setScore: (fn: (s: number) => number) => void;
   onProgress: (completados: number, total: number) => void;
   onRepeat: () => void;
   onResultado?: (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => void;
-  // Modo motor infinito: el padre App decide el siguiente nivel
   onAvanzar?: () => void;
   tituloNivel?: string;
 }
@@ -37,7 +36,7 @@ async function boomConfetti(colores?: string[]) {
   } catch { /* noop */ }
 }
 
-export default function LetterGame({ levels, nombre, speak, isSpeaking, score, setScore, onProgress, onRepeat, onResultado, onAvanzar, tituloNivel }: Props) {
+export default function LetterGame({ levels, nombre, speak, hablarSecuencia, isSpeaking, score, setScore, onProgress, onRepeat, onResultado, onAvanzar, tituloNivel }: Props) {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [letters, setLetters] = useState<string[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
@@ -53,20 +52,16 @@ export default function LetterGame({ levels, nombre, speak, isSpeaking, score, s
 
   const generateLetters = useCallback(() => {
     const targets = config.targetLetters;
-    const alphabet = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('');
-    const others = alphabet.filter((l) => !targets.includes(l));
-    const extra = Array.from({ length: 4 }, () => others[Math.floor(Math.random() * others.length)]);
-    // Objetivos siempre presentes: solo se recorta el relleno aleatorio
-    const resto = 6 - targets.length;
-    const mix = [...targets, ...extra.slice(0, Math.max(0, resto))].sort(() => Math.random() - 0.5);
+    const distractores = config.distractores;
+    // Mostrar objetivo + 3 distractores = 4 letras
+    const mix = [...targets, ...distractores].sort(() => Math.random() - 0.5);
     setLetters(mix);
     setSelectedLetters([]);
     setWrongLetters([]);
     setFoundWords([]);
-    // Hablado: solo la instrucción fija (pregrabada). Los detalles van en pantalla.
-    const intro = `${config.instruction} Buscamos: ${targets.join(', ')}.`;
+    // Hablado: solo la instrucción fija (pregrabada)
     setBotTipo('info');
-    setBotTexto(intro);
+    setBotTexto(config.instruction);
     speak(config.instruction);
   }, [config, speak]);
 
@@ -106,9 +101,9 @@ export default function LetterGame({ levels, nombre, speak, isSpeaking, score, s
     if (config.targetLetters.includes(letter)) {
       const next = [...selectedLetters, letter];
       setSelectedLetters(next);
-      const word = next.join('');
       const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
       setScore((s) => s + 10);
+      const word = next.join('');
       if (config.wordsToHighlight.some((w) => w.startsWith(word)) && word.length >= 2) {
         setFoundWords((p) => (p.includes(word) ? p : [...p, word]));
         setBotTipo('bien');

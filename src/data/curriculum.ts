@@ -2,15 +2,20 @@ export type RangeId = '3-5' | '6-8';
 
 export interface Level {
   id: number;
+  rango: RangeId;
+  tipo: 'vocal' | 'silaba' | 'palabra' | 'oracion';
   titulo: string;
   descripcion: string;
   targetLetters: string[];
+  distractores: string[]; // 3 letras incorrectas para elegir
   instruction: string;
-  wordsToHighlight: string[];
-  reward: string;
-  emoji: string[];
-  phonetics: Record<string, string>;
-  sentences?: string[];
+  audioInstruccion: string; // archivo de audio
+  audioObjetivo: string;    // archivo de audio de la letra objetivo
+  audioFonetica: string;    // archivo de audio del sonido fonético
+  audioCorrecto: string;    // audio de felicitación
+  audioError: string;       // audio de corrección
+  emoji: string;
+  palabrasEjemplo: string[];
 }
 
 export interface ChildProfile {
@@ -28,93 +33,256 @@ export function nuevoId(): string {
 
 export const AVATARS = ['🦁', '🐱', '🦊', '🐰', '🐼', '🐨'];
 
+// ============================================================
+// GENERADOR AUTOMÁTICO DE NIVELES
+// ============================================================
+
+const VOCES_VOCALES = ['A', 'E', 'I', 'O', 'U'];
+const CONSONANTES = ['M', 'P', 'S', 'L', 'T', 'N', 'R', 'D', 'C', 'B', 'F', 'G', 'H', 'J', 'K', 'Ñ', 'Q', 'V', 'W', 'X', 'Y', 'Z'];
+
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function elegirDistractores(letra: string, todos: string[]): string[] {
+  const otros = todos.filter(l => l !== letra);
+  return shuffle(otros).slice(0, 3);
+}
+
+function audioLetra(letra: string): string {
+  return `letra_${letra}.wav`;
+}
+
+function audioFonetica(letra: string): string {
+  return `fonetica_${letra}.wav`;
+}
+
+function generarNiveles3_5(): Level[] {
+  const niveles: Level[] = [];
+  let id = 1;
+
+  // Fase 1: Vocales individuales (niveles 1-10)
+  for (const vocal of VOCES_VOCALES) {
+    for (let rep = 0; rep < 2; rep++) {
+      niveles.push({
+        id: id++,
+        rango: '3-5',
+        tipo: 'vocal',
+        titulo: `Vocal ${vocal}`,
+        descripcion: `Reconocer la vocal ${vocal}`,
+        targetLetters: [vocal],
+        distractores: elegirDistractores(vocal, VOCES_VOCALES),
+        instruction: `Toca la letra ${vocal}`,
+        audioInstruccion: `toca_letra.wav`, // se generará
+        audioObjetivo: `letra_${vocal}.wav`,
+        audioFonetica: `fonetica_${vocal}.wav`,
+        audioCorrecto: `felicitacion.wav`,
+        audioError: `casi.wav`,
+        emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+        palabrasEjemplo: [],
+      });
+    }
+  }
+
+  // Fase 2: Consonantes con vocales (niveles 11-30)
+  for (const cons of CONSONANTES.slice(0, 10)) {
+    for (const vocal of VOCES_VOCALES.slice(0, 3)) {
+      const silaba = cons + vocal;
+      niveles.push({
+        id: id++,
+        rango: '3-5',
+        tipo: 'silaba',
+        titulo: `Sílaba ${silaba}`,
+        descripcion: `Reconocer la sílaba ${silaba}`,
+        targetLetters: [cons, vocal],
+        distractores: elegirDistractores(cons, CONSONANTES),
+        instruction: `Toca la letra ${cons}`,
+        audioInstruccion: `toca_letra.wav`,
+        audioObjetivo: `letra_${cons}.wav`,
+        audioFonetica: `fonetica_${cons}.wav`,
+        audioCorrecto: `felicitacion.wav`,
+        audioError: `casi.wav`,
+        emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+        palabrasEjemplo: [],
+      });
+    }
+  }
+
+  // Fase 3: Sílabas directas (niveles 31-50)
+  const silabasDirectas = ['MA', 'PA', 'SA', 'LA', 'TA', 'NA', 'RA', 'DA', 'CA', 'BA', 'FA', 'GA', 'HA', 'JA', 'KA', 'ÑA', 'QA', 'VA', 'WA', 'XA', 'YA', 'ZA'];
+  for (const silaba of silabasDirectas.slice(0, 20)) {
+    const cons = silaba[0];
+    const vocal = silaba[1];
+    niveles.push({
+      id: id++,
+      rango: '3-5',
+      tipo: 'silaba',
+      titulo: `Sílaba ${silaba}`,
+      descripcion: `Reconocer la sílaba ${silaba}`,
+      targetLetters: [cons, vocal],
+      distractores: elegirDistractores(cons, CONSONANTES),
+      instruction: `Toca la letra ${cons}`,
+      audioInstruccion: `toca_letra.wav`,
+      audioObjetivo: `letra_${cons}.wav`,
+      audioFonetica: `fonetica_${cons}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [],
+    });
+  }
+
+  return niveles;
+}
+
+function generarNiveles6_8(): Level[] {
+  const niveles: Level[] = [];
+  let id = 1;
+
+  // Fase 1: Sílabas directas (niveles 1-10)
+  const silabasDirectas = ['MA', 'PA', 'SA', 'LA', 'TA', 'NA', 'RA', 'DA', 'CA', 'BA'];
+  for (const silaba of silabasDirectas) {
+    const cons = silaba[0];
+    const vocal = silaba[1];
+    niveles.push({
+      id: id++,
+      rango: '6-8',
+      tipo: 'silaba',
+      titulo: `Sílaba ${silaba}`,
+      descripcion: `Reconocer la sílaba ${silaba}`,
+      targetLetters: [cons, vocal],
+      distractores: elegirDistractores(cons, CONSONANTES),
+      instruction: `Toca la letra ${cons}`,
+      audioInstruccion: `toca_letra.wav`,
+      audioObjetivo: `letra_${cons}.wav`,
+      audioFonetica: `fonetica_${cons}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [],
+    });
+  }
+
+  // Fase 2: Sílabas trabadas (niveles 11-30)
+  const silabasTrabadas = ['PRA', 'TRA', 'FRA', 'CLA', 'GRA', 'DRA', 'BRA', 'CRA', 'FRA', 'GLA', 'PLA', 'TRA'];
+  for (const silaba of silabasTrabadas.slice(0, 20)) {
+    const cons1 = silaba[0];
+    const cons2 = silaba[1];
+    const vocal = silaba[2];
+    niveles.push({
+      id: id++,
+      rango: '6-8',
+      tipo: 'silaba',
+      titulo: `Sílaba ${silaba}`,
+      descripcion: `Reconocer la sílaba ${silaba}`,
+      targetLetters: [cons1, cons2, vocal],
+      distractores: elegirDistractores(cons1, CONSONANTES),
+      instruction: `Toca la letra ${cons1}`,
+      audioInstruccion: `toca_letra.wav`,
+      audioObjetivo: `letra_${cons1}.wav`,
+      audioFonetica: `fonetica_${cons1}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [],
+    });
+  }
+
+  // Fase 3: Palabras de 2 sílabas (niveles 31-50)
+  const palabras2 = ['MAMA', 'PAPA', 'PERA', 'SOL', 'LUNA', 'MAR', 'MARIPOSA', 'ELEFANTE', 'CANA', 'CASA'];
+  for (const palabra of palabras2.slice(0, 20)) {
+    const letraInicial = palabra[0];
+    niveles.push({
+      id: id++,
+      rango: '6-8',
+      tipo: 'palabra',
+      titulo: `Palabra ${palabra}`,
+      descripcion: `Reconocer la palabra ${palabra}`,
+      targetLetters: [letraInicial],
+      distractores: elegirDistractores(letraInicial, CONSONANTES),
+      instruction: `¿Con qué empieza ${palabra}?`,
+      audioInstruccion: `busca_letra.wav`,
+      audioObjetivo: `letra_${letraInicial}.wav`,
+      audioFonetica: `fonetica_${letraInicial}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [palabra],
+    });
+  }
+
+  // Fase 4: Palabras de 3+ sílabas (niveles 51-80)
+  const palabras3 = ['ELEFANTE', 'MARIPOSA', 'TELEFONO', 'COMPUTADORA', 'ESCUELA', 'CASA', 'PERRO', 'GATO', 'PAPA', 'MAMA'];
+  for (const palabra of palabras3.slice(0, 30)) {
+    const letraInicial = palabra[0];
+    niveles.push({
+      id: id++,
+      rango: '6-8',
+      tipo: 'palabra',
+      titulo: `Palabra ${palabra}`,
+      descripcion: `Reconocer la palabra ${palabra}`,
+      targetLetters: [letraInicial],
+      distractores: elegirDistractores(letraInicial, CONSONANTES),
+      instruction: `¿Con qué empieza ${palabra}?`,
+      audioInstruccion: `busca_letra.wav`,
+      audioObjetivo: `letra_${letraInicial}.wav`,
+      audioFonetica: `fonetica_${letraInicial}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [palabra],
+    });
+  }
+
+  // Fase 5: Oraciones simples (niveles 81-100)
+  const oraciones = [
+    'Mamá me ama', 'El sol sale', 'El perro corre', 'La luna brilla', 'El niño juega',
+    'La casa es grande', 'El agua fría', 'El pan caliente', 'La flor roja', 'El pájaro canta'
+  ];
+  for (let i = 0; i < 20; i++) {
+    const oracion = oraciones[i % oraciones.length];
+    const letraInicial = oracion[0].toUpperCase();
+    niveles.push({
+      id: id++,
+      rango: '6-8',
+      tipo: 'oracion',
+      titulo: `Oración ${i + 1}`,
+      descripcion: `Leer: ${oracion}`,
+      targetLetters: [letraInicial],
+      distractores: elegirDistractores(letraInicial, CONSONANTES),
+      instruction: `¿Con qué empieza "${oracion}"?`,
+      audioInstruccion: `busca_letra.wav`,
+      audioObjetivo: `letra_${letraInicial}.wav`,
+      audioFonetica: `fonetica_${letraInicial}.wav`,
+      audioCorrecto: `felicitacion.wav`,
+      audioError: `casi.wav`,
+      emoji: ['🍎', '🐘', '🐨', '🦁', '🐨'][Math.floor(Math.random() * 5)],
+      palabrasEjemplo: [oracion],
+    });
+  }
+
+  return niveles;
+}
+
 export const CURRICULUM: Record<RangeId, Level[]> = {
-  '3-5': [
-    {
-      id: 1,
-      titulo: 'Vocales mágicas',
-      descripcion: 'Escuchar y reconocer vocales',
-      targetLetters: ['A', 'E', 'O'],
-      instruction: 'Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.',
-      wordsToHighlight: ['AEO'],
-      reward: '¡Escuchaste muy bien las vocales!',
-      emoji: ['🍎', '🐘', '⚽'],
-      phonetics: { A: 'aaa como manzana', E: 'eee como elefante', O: 'ooo como oso' },
-    },
-    {
-      id: 2,
-      titulo: 'Sonidos suaves',
-      descripcion: 'M y S con vocales',
-      targetLetters: ['M', 'S', 'A'],
-      instruction: 'Vamos a escuchar sonidos: mmm como mamá y sss como serpiente. Toca la letra del sonido.',
-      wordsToHighlight: ['MA', 'SA'],
-      reward: '¡Qué oído tan lindo!',
-      emoji: ['🤱', '🐍', '🍎'],
-      phonetics: { M: 'mmm como mamá', S: 'sss como serpiente', A: 'aaa como manzana' },
-    },
-    {
-      id: 3,
-      titulo: 'Mi primera sílaba',
-      descripcion: 'Juntar M + A = MA',
-      targetLetters: ['M', 'A', 'P'],
-      instruction: 'Juntamos sonidos: mmm con aaa forman MA. Busca M y A para formar MA.',
-      wordsToHighlight: ['MA', 'PA'],
-      reward: '¡Formaste tu primera sílaba!',
-      emoji: ['🤱', '🍎', '👨'],
-      phonetics: { M: 'mmm', A: 'aaa, juntos MA', P: 'ppp como papá' },
-    },
-  ],
-  '6-8': [
-    {
-      id: 1,
-      titulo: 'Sílabas MA PA LA',
-      descripcion: 'Armar sílabas directas',
-      targetLetters: ['M', 'A', 'P', 'L'],
-      instruction: 'Junta las letras para formar MA, PA y LA. Escucha: mmm-aaa dice MA.',
-      wordsToHighlight: ['MA', 'PA', 'LA'],
-      reward: '¡Armaste sílabas muy bien!',
-      emoji: ['🤱', '🍎', '👨'],
-      phonetics: { M: 'mmm-aaa = MA', A: 'aaa', P: 'ppp-aaa = PA', L: 'lll-aaa = LA' },
-    },
-    {
-      id: 2,
-      titulo: 'Palabras dulces',
-      descripcion: 'MAMA, PAPA, PERA',
-      targetLetters: ['P', 'E', 'R', 'A'],
-      instruction: 'Forma palabras que puedes leer: MAMA, PAPA y PERA. Escucha despacio: pe-eee-ra.',
-      wordsToHighlight: ['MAMA', 'PAPA', 'PERA'],
-      reward: '¡Leíste palabras de verdad!',
-      emoji: ['🤱', '👨', '🍐'],
-      phonetics: { P: 'pe', E: 'eee', R: 'rrr suave', A: 'aaa' },
-      sentences: ['Mamá me ama', 'Pepa pela pera', 'Mi papá me mima'],
-    },
-    {
-      id: 3,
-      titulo: 'Leo oraciones',
-      descripcion: 'Leer y comprender',
-      targetLetters: ['S', 'O', 'L', 'E'],
-      instruction: 'Lee la oración completita y luego dime qué entendiste. Escucha primero a Léo.',
-      wordsToHighlight: ['SOL', 'LEO', 'OLES'],
-      reward: '¡Lees oraciones enteras!',
-      emoji: ['☀️', '📖', '❤️'],
-      phonetics: { S: 'sss', O: 'ooo', L: 'lll', E: 'eee' },
-      sentences: ['Leo el sol', 'El sol sale solo', 'Léo lee con amor'],
-    },
-  ],
+  '3-5': generarNiveles3_5(),
+  '6-8': generarNiveles6_8(),
 };
 
 export const READING_CARDS: Record<RangeId, { objetivo: string; imagen: string; pista: string }[]> = {
   '3-5': [
     { objetivo: 'A', imagen: '🍎', pista: 'aaa como manzana' },
     { objetivo: 'E', imagen: '🐘', pista: 'eee como elefante' },
+    { objetivo: 'I', imagen: '🏝️', pista: 'iii como isla' },
     { objetivo: 'O', imagen: '⚽', pista: 'ooo como oso' },
-    { objetivo: 'MA', imagen: '🤱', pista: 'mmm con aaa, MA' },
+    { objetivo: 'U', imagen: '🍇', pista: 'uuu como uva' },
   ],
   '6-8': [
     { objetivo: 'MAMA', imagen: '🤱', pista: 'ma-ma, despacio ma-ma' },
     { objetivo: 'PAPA', imagen: '👨', pista: 'pa-pa, despacio pa-pa' },
     { objetivo: 'PERA', imagen: '🍐', pista: 'pe-ra, despacio pe-ra' },
     { objetivo: 'SOL', imagen: '☀️', pista: 'sol, sss-ooo-lll' },
+    { objetivo: 'LUNA', imagen: '🌙', pista: 'lu-na, despacio lu-na' },
   ],
 };
 
@@ -132,7 +300,6 @@ function leerLista(): ChildProfile[] {
   }
 }
 
-// Migra el perfil único viejo (Aarón) a la lista sin perderlo
 function migrar(): ChildProfile[] {
   let lista = leerLista();
   if (lista.length > 0) return lista;
@@ -186,7 +353,6 @@ export function clearProfile() {
   localStorage.removeItem(PROFILE_KEY);
 }
 
-// Puntaje y saludo por niño (turnos independientes)
 export function scoreKey(id: string): string {
   return `lee_score_${id}`;
 }
@@ -224,9 +390,6 @@ export function saveProgreso(id: string, done: number, total: number) {
   } catch { /* noop */ }
 }
 
-// Estado del motor infinito por niño
-import type { EstadoMotor } from './motorNiveles';
-
 export function motorKey(id: string): string {
   return `lee_motor_${id}`;
 }
@@ -245,7 +408,6 @@ export function loadMotor(id: string): EstadoMotor {
 export function saveMotor(id: string, m: EstadoMotor) {
   try {
     localStorage.setItem(motorKey(id), JSON.stringify(m));
-    // marcar pendiente de nube (Fase 4 lo sube)
     localStorage.setItem('lee_sync_pendiente', '1');
   } catch { /* noop */ }
 }

@@ -1,8 +1,4 @@
-// Motor procedural de niveles infinitos: vocales → sílabas → abecedario → repaso.
-// Determinista por (etapa, n): el mismo n genera el mismo nivel (precache y sync).
-import type { Level, RangeId } from './curriculum';
-
-export type EtapaId = 'vocales' | 'silabas' | 'abecedario' | 'repaso';
+export type EtapaId = 'vocales' | 'silabas' | 'palabras' | 'oraciones';
 
 export interface EstadoMotor {
   etapa: EtapaId;
@@ -14,12 +10,12 @@ export interface EstadoMotor {
 export const ETAPAS: { id: EtapaId; nombre: string; icono: string; desc: string }[] = [
   { id: 'vocales', nombre: 'Vocales', icono: '🎨', desc: 'A, E, I, O, U' },
   { id: 'silabas', nombre: 'Sílabas', icono: '🧱', desc: 'MA, PA, SA, LA...' },
-  { id: 'abecedario', nombre: 'Abecedario', icono: '🔤', desc: 'De la A a la Z' },
-  { id: 'repaso', nombre: 'Repaso infinito', icono: '♾️', desc: 'Mezcla de todo' },
+  { id: 'palabras', nombre: 'Palabras', icono: '📖', desc: 'MAMA, PAPA, PERA, SOL...' },
+  { id: 'oraciones', nombre: 'Oraciones', icono: '📚', desc: 'Mamá me ama, El sol sale...' },
 ];
 
 export const VOCALES = ['A', 'E', 'I', 'O', 'U'];
-export const CONSONANTES = ['M', 'P', 'S', 'L', 'T', 'N', 'R', 'D', 'C', 'B'];
+export const CONSONANTES = ['M', 'P', 'S', 'L', 'T', 'N', 'R', 'D', 'C', 'B', 'F', 'G', 'H', 'J', 'K', 'Ñ', 'Q', 'V', 'W', 'X', 'Y', 'Z'];
 export const ABECEDARIO = 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZ'.split('');
 
 export const FONETICA: Record<string, string> = {
@@ -27,11 +23,9 @@ export const FONETICA: Record<string, string> = {
   O: 'ooo como oso', U: 'uuu como uva', M: 'mmm como mamá',
   P: 'ppp como papá', S: 'sss como serpiente', L: 'lll como luna',
   T: 'ttt como tambor', N: 'nnn como nube', R: 'rrr suave como rueda',
-  D: 'ddd como dado', C: 'kkk como casa', B: 'bbb como balón',
-  F: 'fff como foca', G: 'ggg como gato', H: 'la hache es muda',
-  J: 'jjj como jirafa', K: 'kkk como kilo', Ñ: 'ñññ como niño',
-  Q: 'kkk como queso', V: 'vvv como vaca', W: 'uuu como wifi',
-  X: 'ekis como taxi', Y: 'yyy como yoyo', Z: 'zzz como zapato',
+  D: 'ddd como dado', C: 'ce', B: 'bbb', F: 'eff', G: 'ge', H: 'hache',
+  J: 'jota', K: 'ka', Ñ: 'eñe', Q: 'cu', V: 'uve', W: 'uve doble',
+  X: 'equis', Y: 'i griega', Z: 'zeta'
 };
 
 function mulberry32(semilla: number) {
@@ -40,7 +34,7 @@ function mulberry32(semilla: number) {
     a |= 0;
     a = (a + 0x6d2b79f5) | 0;
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    t = (t + Math.imul(t ^ (a >>> 7), 61 | a)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -63,13 +57,7 @@ function ponderada(letras: string[], pesos: Record<string, number>, k: number, r
   return [...new Set(muestra(bolsa, Math.min(k * 3, bolsa.length), rnd))].slice(0, k);
 }
 
-function foneticas(targets: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const t of targets) out[t] = FONETICA[t] || t;
-  return out;
-}
-
-export function generarNivel(estado: EstadoMotor, rango: RangeId): Level {
+export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
   const rnd = mulberry32(estado.n * 2654435761 + estado.etapa.length * 97 + (rango === '6-8' ? 13 : 7));
   const base = { id: estado.n + 1, emoji: ['🦉', '📚', '⭐'], sentences: [] as string[] };
 
@@ -105,7 +93,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): Level {
     };
   }
 
-  if (estado.etapa === 'abecedario') {
+  if (estado.etapa === 'palabras') {
     const inicio = (estado.n * 4) % (ABECEDARIO.length - 4);
     const targets = ABECEDARIO.slice(inicio, inicio + 4);
     return {
@@ -120,7 +108,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): Level {
     };
   }
 
-  // repaso infinito: lo que más cuesta, más sale
+  // repaso infinito
   const targets = ponderada(rango === '3-5' ? [...VOCALES, 'M', 'P', 'S'] : ABECEDARIO, estado.pesos, 4, rnd);
   return {
     ...base,
@@ -134,7 +122,6 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): Level {
   };
 }
 
-// Regla de avance: ≥80% aciertos sube de número; cada 6 niveles sube de etapa.
 export function avanzar(
   estado: EstadoMotor,
   aciertos: number,
@@ -148,7 +135,7 @@ export function avanzar(
   for (const l of acertadas) ac[l] = (ac[l] || 0) + 1;
   const ok = total > 0 && aciertos / total >= 0.8;
   const n = ok ? estado.n + 1 : estado.n;
-  const orden: EtapaId[] = ['vocales', 'silabas', 'abecedario', 'repaso'];
+  const orden: EtapaId[] = ['vocales', 'silabas', 'palabras', 'oraciones'];
   const idx = orden.indexOf(estado.etapa);
   const subioEtapa = ok && n > 0 && n % 6 === 0 && idx < orden.length - 1;
   return {
@@ -163,4 +150,10 @@ export function dominio(estado: EstadoMotor, letra: string): number {
   const t = a + f;
   if (t === 0) return 0;
   return Math.round((a / t) * 100);
+}
+
+function foneticas(targets: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const t of targets) out[t] = FONETICA[t] || t;
+  return out;
 }
