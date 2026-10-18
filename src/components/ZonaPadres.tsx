@@ -2,6 +2,7 @@ import { useState } from 'react';
 import VoicePicker from './VoicePicker';
 import MapaDominio from './MapaDominio';
 import type { EstadoMotor } from '../data/motorNiveles';
+import { dominio } from '../data/motorNiveles';
 
 interface Props {
   nombre: string;
@@ -24,6 +25,8 @@ interface Props {
   enLinea: boolean;
   onNube: () => void;
   onSalirNube: () => void;
+  score?: number;
+  progreso?: { done: number; total: number };
 }
 
 // Zona solo para papá/mamá: primero una suma fácil que el peque no resuelve.
@@ -32,6 +35,7 @@ export default function ZonaPadres(p: Props) {
   const [b] = useState(() => 3 + Math.floor(Math.random() * 4));
   const [resp, setResp] = useState('');
   const [abierto, setAbierto] = useState(false);
+  const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>( 'resumen');
 
   if (!abierto) {
     return (
@@ -63,11 +67,126 @@ export default function ZonaPadres(p: Props) {
     );
   }
 
+  const letrasDificiles = Object.entries(p.motor.pesos)
+    .filter(([_, f]) => f > 0)
+    .map(([letra, f]) => ({ letra, fallos: f }))
+    .sort((a, b) => b.fallos - a.fallos)
+    .slice(0, 5);
+
+  const consejos =
+    p.rango === '3-5'
+      ? [
+          'Practica las vocales A, E, I, O, U pidiendo a tu peque que las busque en carteles de la calle.',
+          'Juega a "veo veo" con sonidos: "veo algo que empieza con M".',
+          'Lee cuentos en voz alta y señala cada palabra con el dedo.',
+        ]
+      : [
+          'Pide a tu peque que te lea en voz alta las sílabas que aprende cada día.',
+          'Forma palabras con imanes de nevera o letras recortadas de papel.',
+          'Practica la lectura de sílabas trabadas (PRA, TRA, BRA) con palabras como "prado" o "brazo".',
+        ];
+
   return (
     <div className="padres-overlay">
       <div className="padres-card">
         <h2>👪 Zona de padres</h2>
         <p className="padres-sub">{p.avatar} {p.nombre} · {p.rango === '3-5' ? '3-5 Pre-lector' : '6-8 Silábico'} · voz {p.fuente === 'nativa' ? 'básica' : 'suave'}</p>
+
+        <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <button
+            className={`icon-btn ${vista === 'resumen' ? 'active-tab' : ''}`}
+            onClick={() => setVista('resumen')}
+          >
+            📊 Resumen
+          </button>
+          <button
+            className={`icon-btn ${vista === 'consejos' ? 'active-tab' : ''}`}
+            onClick={() => setVista('consejos')}
+          >
+            💡 Consejos
+          </button>
+          <button
+            className={`icon-btn ${vista === 'offline' ? 'active-tab' : ''}`}
+            onClick={() => setVista('offline')}
+          >
+            🖨️ Offline
+          </button>
+        </div>
+
+        {vista === 'resumen' && (
+          <div className="padres-resumen">
+            <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Progreso de {p.nombre}</h3>
+            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span>Etapa actual:</span>
+                <strong>{p.motor.etapa}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span>Nivel:</span>
+                <strong>{p.motor.n + 1}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span>Puntuación:</span>
+                <strong>⭐ {p.score ?? 0}</strong>
+              </div>
+              {p.progreso && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Actividades:</span>
+                  <strong>{p.progreso.done} / {p.progreso.total}</strong>
+                </div>
+              )}
+            </div>
+            {letrasDificiles.length > 0 && (
+              <div>
+                <h4 style={{ margin: '0 0 0.5rem', color: '#ff6b6b', fontSize: '1rem' }}>⚠️ Letras que le cuestan más</h4>
+                <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  {letrasDificiles.map(({ letra, fallos }) => (
+                    <span key={letra} style={{ background: 'rgba(255,107,107,0.2)', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.9rem', color: '#ff6b6b' }}>
+                      {letra} ({fallos} fallos)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!letrasDificiles.length > 0 && (
+              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem' }}>¡Sin dificultades detectadas! Sigue así.</p>
+            )}
+            {p.graduado && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#28a745' }}>
+                🎓 Ya graduada/o ¡felicidades!
+              </div>
+            )}
+          </div>
+        )}
+
+        {vista === 'consejos' && (
+          <div className="padres-consejos">
+            <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Consejos para practicar en casa</h3>
+            <ul style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
+              {consejos.map((c, i) => (
+                <li key={i} style={{ marginBottom: '0.6rem' }}>
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: '1rem' }}>
+              💡 Sesiones cortas de 15-30 minutos funcionan mejor que una larga.
+            </p>
+          </div>
+        )}
+
+        {vista === 'offline' && (
+          <div className="padres-offline">
+            <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Actividades para imprimir y hacer en papel</h3>
+            <ul style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
+              <li style={{ marginBottom: '0.6rem' }}>🔤 Tarjetas de letras: recorta letras de revistas y pégalas en una hoja.</li>
+              <li style={{ marginBottom: '0.6rem' }}>🧱 Sílabas con plastilina: moldea las letras de cada sílaba.</li>
+              <li style={{ marginBottom: '0.6rem' }}>📖 Búsqueda de letras: busca una letra específica en un periódico y circúlala.</li>
+              <li style={{ marginBottom: '0.6rem' }}>🎨 Dibuja la letra objetivo y decórala con cosas que empiecen por esa letra.</li>
+            </ul>
+          </div>
+        )}
+
         <VoicePicker onProbar={p.onProbarVoz} />
         <MapaDominio motor={p.motor} />
         <div className="padres-row">

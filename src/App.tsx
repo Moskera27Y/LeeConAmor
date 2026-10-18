@@ -535,6 +535,8 @@ function App() {
           onClose={() => setShowPadres(false)}
           motor={motor}
           graduado={graduado}
+          score={score}
+          progreso={progress}
           onExamen={() => {
             setShowPadres(false);
             setShowExamen(true);

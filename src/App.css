@@ -527,6 +527,12 @@
     .app-header, .app-main, .app-footer { position: relative; z-index: 1; }
     .app-footer { position: static; }
 
+    /* Zona de padres mejorada */
+    .padres-resumen, .padres-consejos, .padres-offline { margin: 1rem 0; }
+    .active-tab { background: #764ba2; color: white; }
+    .padres-resumen h3, .padres-consejos h3, .padres-offline h3 { margin: 0 0 0.8rem; color: #764ba2; font-size: 1.1rem; }
+
+
     .bot-container { display: flex; gap: .8rem; align-items: flex-start; background: #fff8e6; border: 2px solid #ffd166; border-radius: 16px; padding: .9rem 1rem; margin: 1rem 0; text-align: left; }
     .bot-mal { background: #fff0f0; border-color: #ff6b6b; animation: shake .4s; }
     .bot-bien { background: #f0fff4; border-color: #28a745; }
@@ -630,6 +636,12 @@
     .app-header, .app-main, .app-footer { position: relative; z-index: 1; }
     .app-footer { position: static; }
 
+    /* Zona de padres mejorada */
+    .padres-resumen, .padres-consejos, .padres-offline { margin: 1rem 0; }
+    .active-tab { background: #764ba2; color: white; }
+    .padres-resumen h3, .padres-consejos h3, .padres-offline h3 { margin: 0 0 0.8rem; color: #764ba2; font-size: 1.1rem; }
+
+
     .kid-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .kid-id { display: flex; gap: .8rem; align-items: center; }
     .kid-avatar { font-size: 2.8rem; background: white; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; }
@@ -709,3 +721,8 @@
 
     .app-header, .app-main, .app-footer { position: relative; z-index: 1; }
     .app-footer { position: static; }
+
+    /* Zona de padres mejorada */
+    .padres-resumen, .padres-consejos, .padres-offline { margin: 1rem 0; }
+    .active-tab { background: #764ba2; color: white; }
+    .padres-resumen h3, .padres-consejos h3, .padres-offline h3 { margin: 0 0 0.8rem; color: #764ba2; font-size: 1.1rem; }
