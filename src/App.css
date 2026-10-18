@@ -842,3 +842,271 @@
       transition: all 0.2s ease;
     }
     .btn-cerrar-sesion:hover { background: #fecaca; color: #b91c1c; transform: translateY(-1px); }
+/* ============================================
+   MEJORA GRÁFICA GLOBAL - Animaciones y estilo
+   ============================================ */
+
+/* Gradiente animado de fondo más suave */
+.app.sky {
+  background: linear-gradient(-45deg, #7b8cff, #a06cd5, #ff9ecf, #ffd700);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Elementos flotantes mejorados */
+.sky-deco span {
+  animation: float 6s ease-in-out infinite;
+  display: inline-block;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(5deg); }
+}
+
+/* Botones con gradiente y efectos mejorados */
+.next-btn, .listen-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 50px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.2s ease !important;
+}
+
+.next-btn:hover, .listen-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6) !important;
+  filter: brightness(1.1) !important;
+}
+
+.next-btn:active, .listen-btn:active {
+  transform: translateY(0) !important;
+}
+
+/* Tarjetas con efecto elevado */
+.letter-btn, .peque-card-modal {
+  transition: all 0.2s ease !important;
+}
+
+.letter-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* Animación de entrada para pantallas */
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-up {
+  animation: slideUpFade 0.5s ease-out forwards;
+}
+
+/* Barra de progreso mejorada */
+.progress-fill {
+  background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb) !important;
+  background-size: 200% 100% !important;
+  animation: gradientMove 3s linear infinite !important;
+  border-radius: 12px !important;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* Insignias con brillo */
+.insignia-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+  font-size: 1.5rem;
+  margin: 0.5rem;
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Botón de cerrar sesión más visible */
+.btn-cerrar-sesion {
+  background: linear-gradient(135deg, #ff6b6b, #ee5253) !important;
+  color: white !important;
+}
+
+.btn-cerrar-sesion:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4) !important;
+}
+
+/* Mejoras UX móvil */
+@media (max-width: 480px) {
+  .app-main {
+    padding: 1rem !important;
+  }
+  
+  .letter-btn {
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 2rem !important;
+  }
+  
+  .listen-btn, .next-btn {
+    min-height: 56px !important;
+    font-size: 1rem !important;
+    padding: 0.8rem 1.5rem !important;
+  }
+  
+  .kid-avatar {
+    width: 56px !important;
+    height: 56px !important;
+    font-size: 2.4rem !important;
+  }
+  
+  .kid-name {
+    font-size: 1.1rem !important;
+  }
+  
+  .tabs .tab {
+    min-height: 48px !important;
+    font-size: 0.95rem !important;
+    padding: 0.7rem !important;
+  }
+}
+
+/* Efecto de celebración mejorado */
+.confetti-burst {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  pointer-events: none;
+  animation: confettiPop 1s ease-out forwards;
+}
+
+@keyframes confettiPop {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+}
+
+/* Lectura en voz alta - indicador visual */
+.is-speaking-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(118, 75, 162, 0.1);
+  border-radius: 25px;
+  color: #764ba2;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.speaking-dot {
+  width: 8px;
+  height: 8px;
+  background: #764ba2;
+  border-radius: 50%;
+  animation: speakingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes speakingPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Feedback visual para aciertos/errores */
+.feedback-correcto {
+  color: #28a745;
+  font-weight: 800;
+  animation: correctoBounce 0.5s ease;
+}
+
+@keyframes correctoBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.feedback-incorrecto {
+  color: #ff6b6b;
+  font-weight: 800;
+  animation: incorrectoShake 0.5s ease;
+}
+
+@keyframes incorrectoShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+/* Mejoras para zonas de padres */
+.padres-modal-card {
+  backdrop-filter: blur(10px);
+}
+
+.padres-row {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  margin: 0.8rem 0;
+  flex-wrap: wrap;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 30px;
+  padding: 0.7rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  background: #f3efff;
+  transform: translateY(-1px);
+}
+
+.icon-btn.active-tab {
+  background: #764ba2;
+  color: white;
+}
+
+/* Zona de padres - estadísticas */
+.padres-stat-card {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  backdrop-filter: blur(5px);
+}
+
+.padres-stat-card h4 {
+  margin: 0 0 0.5rem;
+  color: #764ba2;
+  font-size: 0.95rem;
+}
+
+.padres-stat-card .valor {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #333;
+}

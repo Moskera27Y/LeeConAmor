@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Level } from '../data/curriculum';
 import BotMessage from './BotMessage';
+import { ABECEDARIO, VOCALES } from '../data/motorNiveles';
 
 declare global {
   interface Window {
@@ -52,8 +53,15 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
 
   const generateLetters = useCallback(() => {
     const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
-    const distractores = Array.isArray(config.distractores) ? config.distractores : [];
-    // Mostrar objetivo + 3 distractores = 4 letras
+    let distractores = Array.isArray(config.distractores) ? config.distractores : [];
+
+    // Si no hay distractores definidos, generarlos automáticamente del abecedario
+    if (distractores.length === 0) {
+      const todasLasLetras = ABECEDARIO.filter((l) => !targets.includes(l));
+      distractores = todasLasLetras.sort(() => Math.random() - 0.5).slice(0, 3);
+    }
+
+    // Mostrar objetivo + 3 distractores = 4 letras (o más si hay más targets)
     const mix = [...targets, ...distractores].sort(() => Math.random() - 0.5);
     setLetters(mix);
     setSelectedLetters([]);

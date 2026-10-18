@@ -8,6 +8,11 @@ import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
 import { registrarEvento, obtenerRecomendacionAdaptativa, cargarAdaptabilidad } from './lib/adaptividad';
 import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas } from './lib/gamificacion';
+import EscucharYElige from './components/EscuchaYElige';
+import FormarSílabaTrabada from './components/FormarSílabaTrabada';
+import PalabrasDesordenadas from './components/PalabrasDesordenadas';
+import TrazoLetra from './components/TrazoLetra';
+import MemoriaAuditiva from './components/MemoriaAuditiva';
 import { useVoice } from './hooks/useVoice';
 import BotMessage from './components/BotMessage';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -66,6 +71,7 @@ function App() {
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
   const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: import('./data/curriculum').RangeId; avatar: string; voiceOn: boolean } | null>(null);
+  const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | null>(null);
 
   const manejarCorrecto = (actividadId: string) => {
     setScore((s) => s + 10);
@@ -299,7 +305,7 @@ function App() {
 
   const manejarResultado = (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => {
     if (!profile) return;
-    const { nuevo, subioEtapa } = avanzar(motor, r.aciertos, r.total, r.falladas, r.acertadas);
+    const { nuevo, subioEtapa } = avanzar(motor, r.aciertos, r.total, r.falladas, r.acertadas, profile.rango);
     setMotor(nuevo);
     saveMotor(profile.id, nuevo);
     if (subioEtapa) {
@@ -353,8 +359,9 @@ function App() {
         </div>
 
         <div className="tabs">
-          <button className={`tab ${tab === 'jugar' ? 'active' : ''}`} onClick={() => setTab('jugar')}>🎮 Jugar letras</button>
-          <button className={`tab ${tab === 'leer' ? 'active' : ''}`} onClick={() => setTab('leer')}>🎤 Solo lectura</button>
+          <button className={`tab ${tab === 'jugar' ? 'active' : ''}`} onClick={() => { setTab('jugar'); setMasJuego(null); }}>🎮 Jugar letras</button>
+          <button className={`tab ${tab === 'leer' ? 'active' : ''}`} onClick={() => { setTab('leer'); setMasJuego(null); }}>🎤 Solo lectura</button>
+          <button className={`tab ${tab === 'mas' ? 'active' : ''}`} onClick={() => setTab('mas')}>🎲 Más juegos</button>
         </div>
 
         {actividadActual ? (
@@ -533,6 +540,123 @@ function App() {
               </div>
             )}
           </>
+        )}
+        {tab === 'mas' && (
+          <div className="mas-juegos" style={{ maxWidth: '500px', margin: '0 auto', padding: '1rem' }}>
+            <h3 style={{ textAlign: 'center', color: '#764ba2', marginBottom: '1rem' }}>🎲 Más juegos</h3>
+            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <button
+                className={`icon-btn ${masJuego === 'escucha_elige' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('escucha_elige')}
+              >
+                👂 Escucha y elige
+              </button>
+              <button
+                className={`icon-btn ${masJuego === 'silaba_trabada' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('silaba_trabada')}
+              >
+                🧱 Sílabas trabadas
+              </button>
+              <button
+                className={`icon-btn ${masJuego === 'palabras_desordenadas' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('palabras_desordenadas')}
+              >
+                🔤 Palabras desordenadas
+              </button>
+              <button
+                className={`icon-btn ${masJuego === 'trazo' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('trazo')}
+              >
+                👆 Trazo de letras
+              </button>
+              <button
+                className={`icon-btn ${masJuego === 'memoria' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('memoria')}
+              >
+                🧠 Memoria auditiva
+              </button>
+            </div>
+            {masJuego === 'escucha_elige' && (
+              <EscucharYElige
+                rango={profile.rango}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                onError={() => {
+                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {masJuego === 'silaba_trabada' && (
+              <FormarSílabaTrabada
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                onError={() => {
+                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {masJuego === 'palabras_desordenadas' && (
+              <PalabrasDesordenadas
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                onError={() => {
+                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {masJuego === 'trazo' && (
+              <TrazoLetra
+                speak={speak}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                onError={() => {
+                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {masJuego === 'memoria' && (
+              <MemoriaAuditiva
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                onError={() => {
+                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
+                  setEstadoGamificacion(g.siguiente);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+          </div>
         )}
       </main>
 

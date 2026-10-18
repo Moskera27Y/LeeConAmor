@@ -9,12 +9,28 @@ export interface EstadoMotor {
   actividadIdx?: number;
 }
 
+// Etapas por rango de edad
+export const ETAPAS_POR_RANGO: Record<'3-5' | '6-8', EtapaId[]> = {
+  '3-5': ['vocales', 'silabas', 'palabras'],
+  '6-8': ['vocales', 'silabas', 'palabras', 'oraciones'],
+};
+
 export const ETAPAS: { id: EtapaId; nombre: string; icono: string; desc: string }[] = [
   { id: 'vocales', nombre: 'Vocales', icono: '🎨', desc: 'A, E, I, O, U' },
   { id: 'silabas', nombre: 'Sílabas', icono: '🧱', desc: 'MA, PA, SA, LA...' },
   { id: 'palabras', nombre: 'Palabras', icono: '📖', desc: 'MAMA, PAPA, PERA, SOL...' },
   { id: 'oraciones', nombre: 'Oraciones', icono: '📚', desc: 'Mamá me ama, El sol sale...' },
 ];
+
+// Obtener las etapas disponibles para un rango
+export function obtenerEtapasDisponibles(rango: '3-5' | '6-8'): EtapaId[] {
+  return ETAPAS_POR_RANGO[rango];
+}
+
+// Verificar si una etapa está disponible para un rango
+export function etapaDisponible(rango: '3-5' | '6-8', etapa: EtapaId): boolean {
+  return ETAPAS_POR_RANGO[rango].includes(etapa);
+}
 
 export const VOCALES = ['A', 'E', 'I', 'O', 'U'];
 export const CONSONANTES = ['M', 'P', 'S', 'L', 'T', 'N', 'R', 'D', 'C', 'B', 'F', 'G', 'H', 'J', 'K', 'Ñ', 'Q', 'V', 'W', 'X', 'Y', 'Z'];
@@ -66,11 +82,13 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
   if (estado.etapa === 'vocales') {
     const k = estado.n < 2 ? 2 : 3;
     const targets = muestra(VOCALES, k, rnd);
+    const distractores = muestra(CONSONANTES.slice(0, 6), 3, rnd).filter((c) => !targets.includes(c));
     return {
       ...base,
       titulo: `Vocales ${estado.n + 1}`,
       descripcion: 'Escuchar y reconocer vocales',
       targetLetters: targets,
+      distractores,
       instruction: `Escucha a Léo y toca: ${targets.join(', ')}.`,
       wordsToHighlight: [targets.join('')],
       reward: '¡Muy bien con las vocales!',
@@ -83,11 +101,13 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
     const voc = muestra(VOCALES, 2, rnd);
     const silabas = [cons[0] + voc[0], (cons[1] || cons[0]) + (voc[1] || voc[0])];
     const targets = [...new Set((silabas.join('')).split(''))];
+    const distractores = muestra(CONSONANTES.filter((c) => !targets.includes(c)), 3, rnd);
     return {
       ...base,
       titulo: `Sílabas ${estado.n + 1}`,
       descripcion: `Junta ${silabas.join(' y ')}`,
       targetLetters: targets,
+      distractores,
       instruction: `Junta los sonidos para formar ${silabas.join(' y ')}. Toca sus letras.`,
       wordsToHighlight: silabas,
       reward: '¡Formaste sílabas!',
@@ -98,11 +118,13 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
   if (estado.etapa === 'palabras') {
     const inicio = (estado.n * 4) % (ABECEDARIO.length - 4);
     const targets = ABECEDARIO.slice(inicio, inicio + 4);
+    const distractores = muestra(ABECEDARIO.filter((l) => !targets.includes(l)), 3, rnd);
     return {
       ...base,
       titulo: `Abecedario ${estado.n + 1}`,
       descripcion: `Letras ${targets[0]} a ${targets[targets.length - 1]}`,
       targetLetters: targets,
+      distractores,
       instruction: `Busca estas letras del abecedario: ${targets.join(', ')}.`,
       wordsToHighlight: [targets.join('')],
       reward: '¡Dominas el abecedario!',
@@ -112,11 +134,13 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
 
   // repaso infinito
   const targets = ponderada(rango === '3-5' ? [...VOCALES, 'M', 'P', 'S'] : ABECEDARIO, estado.pesos, 4, rnd);
+  const distractores = muestra(ABECEDARIO.filter((l) => !targets.includes(l)), 3, rnd);
   return {
     ...base,
     titulo: `Repaso ${estado.n + 1}`,
     descripcion: 'Mezcla de todo lo aprendido',
     targetLetters: targets,
+    distractores,
     instruction: `Repasemos juntitos: ${targets.join(', ')}.`,
     wordsToHighlight: [targets.join('')],
     reward: '¡Qué memoria tan linda!',
@@ -129,7 +153,8 @@ export function avanzar(
   aciertos: number,
   total: number,
   falladas: string[],
-  acertadas: string[] = []
+  acertadas: string[] = [],
+  rango: '3-5' | '6-8' = '3-5'
 ): { nuevo: EstadoMotor; subioEtapa: boolean } {
   const pesos = { ...estado.pesos };
   const ac = { ...estado.aciertos };
@@ -137,7 +162,7 @@ export function avanzar(
   for (const l of acertadas) ac[l] = (ac[l] || 0) + 1;
   const ok = total > 0 && aciertos / total >= 0.8;
   const n = ok ? estado.n + 1 : estado.n;
-  const orden: EtapaId[] = ['vocales', 'silabas', 'palabras', 'oraciones'];
+  const orden = ETAPAS_POR_RANGO[rango];
   const idx = orden.indexOf(estado.etapa);
   const subioEtapa = ok && n > 0 && n % 6 === 0 && idx < orden.length - 1;
   return {

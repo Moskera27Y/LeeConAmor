@@ -224,15 +224,17 @@ export function useVoice(enabled: boolean) {
       const url = await resolverAudio(corto, voz, turno);
       if (turno !== turnoRef.current) return; // otra voz tomó el turno
       if (!url) {
-        setFuente('ninguna');
-        setIsSpeaking(false);
+        // Fallback a voz nativa del navegador si Gemini no está disponible
+        setFuente('nativa');
+        setMotivo(null);
+        sonarNativa(corto);
         return;
       }
       setFuente('gemini');
       setMotivo(null);
       reproducirUrl(url, corto, turno);
     },
-    [enabled, muted, reproducirUrl, resolverAudio]
+    [enabled, muted, reproducirUrl, resolverAudio, sonarNativa]
   );
 
   // Habla varios textos en orden, sin traslapes. Si llega un speak() nuevo,
@@ -248,7 +250,14 @@ export function useVoice(enabled: boolean) {
         const corto = t.length > 160 ? t.slice(0, 160) : t;
         lastText.current = corto;
         const url = await resolverAudio(corto, voz, turno);
-        if (turno !== turnoRef.current || !url) return false;
+        if (turno !== turnoRef.current || !url) {
+          // Fallback a voz nativa si no hay audio de Gemini
+          setFuente('nativa');
+          setMotivo(null);
+          sonarNativa(corto);
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
         setFuente('gemini');
         setMotivo(null);
         const ok = await new Promise<boolean>((fin) => {
@@ -286,7 +295,7 @@ export function useVoice(enabled: boolean) {
       }
       return true;
     },
-    [enabled, muted, resolverAudio, stopTodoBase]
+    [enabled, muted, resolverAudio, stopTodoBase, sonarNativa]
   );
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
