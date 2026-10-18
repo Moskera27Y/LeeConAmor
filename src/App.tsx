@@ -612,6 +612,16 @@ function App() {
             setShowPeques(false);
           }}
           onClose={() => setShowPeques(false)}
+          onCerrarSesionPadres={() => {
+            setProfile(null);
+            setPerfiles([]);
+            setEmailNube('');
+            setAuth('fuera');
+            setShowPeques(false);
+            setShowPadres(false);
+            localStorage.removeItem('leeconamor_activo');
+            localStorage.removeItem('lee_recordar');
+          }}
         />
       )}
 
