@@ -6,6 +6,7 @@ import { ETAPAS, avanzar, generarNivel, type EstadoMotor, obtenerActividadActual
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
+import { registrarEvento, obtenerRecomendacionAdaptativa, cargarAdaptabilidad } from './lib/adaptividad';
 import { useVoice } from './hooks/useVoice';
 import BotMessage from './components/BotMessage';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -54,6 +55,7 @@ function App() {
   const [readingIndex, setReadingIndex] = useState(0);
   const [motor, setMotor] = useState<EstadoMotor>({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
   const [actividadActual, setActividadActual] = useState<any>(null);
+  const [estadoAdaptabilidad, setEstadoAdaptabilidad] = useState<any>(null);
   const [graduado, setGraduado] = useState(false);
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -62,6 +64,27 @@ function App() {
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
   const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: import('./data/curriculum').RangeId; avatar: string; voiceOn: boolean } | null>(null);
+
+  const manejarCorrecto = (actividadId: string) => {
+    setScore((s) => s + 10);
+    const siguiente = registrarEvento(estadoAdaptabilidad, 'acierto', actividadId);
+    setEstadoAdaptabilidad(siguiente);
+    const rec = obtenerRecomendacionAdaptativa(siguiente, actividadId);
+    if (rec === 'avanzar') {
+      const nuevo = avanzarActividad(motor, profile.rango);
+      setMotor(nuevo);
+      setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+    }
+  };
+
+  const manejarError = (actividadId: string) => {
+    const siguiente = registrarEvento(estadoAdaptabilidad, 'error', actividadId);
+    setEstadoAdaptabilidad(siguiente);
+    const rec = obtenerRecomendacionAdaptativa(siguiente, actividadId);
+    if (rec === 'refuerzo') {
+      // Mantener misma actividad para refuerzo; no avanzamos
+    }
+  };
 
   const refrescar = () => {
     const lista = loadProfiles();
@@ -86,6 +109,7 @@ function App() {
     if (!esNavegador()) return;
 
     refrescar();
+    setEstadoAdaptabilidad(cargarAdaptabilidad());
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
     document.head.appendChild(script);
@@ -341,16 +365,8 @@ function App() {
                 pista={actividadActual.actividad.pista}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
-                onError={() => {
-                  const nuevo = { ...motor, n: motor.n };
-                  setMotor(nuevo);
-                }}
+                onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
+                onError={() => manejarError(actividadActual.actividad.objetivo)}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -360,16 +376,8 @@ function App() {
                 letras={actividadActual.actividad.letras || actividadActual.actividad.objetivo.split('')}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
-                onError={() => {
-                  const nuevo = { ...motor, n: motor.n };
-                  setMotor(nuevo);
-                }}
+                onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
+                onError={() => manejarError(actividadActual.actividad.objetivo)}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -381,16 +389,8 @@ function App() {
                 opciones={opcionesSilaba(actividadActual.actividad.objetivo)}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
-                onError={() => {
-                  const nuevo = { ...motor, n: motor.n };
-                  setMotor(nuevo);
-                }}
+                onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
+                onError={() => manejarError(actividadActual.actividad.objetivo)}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -401,16 +401,8 @@ function App() {
                 imagen={actividadActual.actividad.imagen}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
-                onError={() => {
-                  const nuevo = { ...motor, n: motor.n };
-                  setMotor(nuevo);
-                }}
+                onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
+                onError={() => manejarError(actividadActual.actividad.objetivo)}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -420,16 +412,8 @@ function App() {
                 imagen={actividadActual.actividad.imagen}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
-                onError={() => {
-                  const nuevo = { ...motor, n: motor.n };
-                  setMotor(nuevo);
-                }}
+                onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
+                onError={() => manejarError(actividadActual.actividad.objetivo)}
                 isSpeaking={isSpeaking}
               />
             )}
