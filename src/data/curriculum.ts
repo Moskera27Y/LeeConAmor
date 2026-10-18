@@ -27,6 +27,7 @@ export interface ChildProfile {
   createdAt: number;
   etapa?: string;
   nivel?: number;
+  evaluacionInicial?: any;
 }
 
 export function nuevoId(): string {

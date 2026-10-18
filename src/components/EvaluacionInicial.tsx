@@ -26,7 +26,7 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
     setCargando(true);
     setError('');
     try {
-      const rec = await recomendarNivelConIce(respuestas, rango, nombre);
+      const rec = await recomendarNivelConIA(respuestas, rango, nombre);
       setResultado(rec);
       const perfil: ChildProfile = {
         id: `peque_${Date.now()}`,
