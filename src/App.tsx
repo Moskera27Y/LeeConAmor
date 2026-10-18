@@ -7,6 +7,7 @@ import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
 import { registrarEvento, obtenerRecomendacionAdaptativa, cargarAdaptabilidad } from './lib/adaptividad';
+import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas } from './lib/gamificacion';
 import { useVoice } from './hooks/useVoice';
 import BotMessage from './components/BotMessage';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -56,6 +57,7 @@ function App() {
   const [motor, setMotor] = useState<EstadoMotor>({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
   const [actividadActual, setActividadActual] = useState<any>(null);
   const [estadoAdaptabilidad, setEstadoAdaptabilidad] = useState<any>(null);
+  const [estadoGamificacion, setEstadoGamificacion] = useState<any>(null);
   const [graduado, setGraduado] = useState(false);
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -74,6 +76,11 @@ function App() {
       const nuevo = avanzarActividad(motor, profile.rango);
       setMotor(nuevo);
       setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+    }
+    const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1, nivelAlcanzado: motor.n + 1 });
+    setEstadoGamificacion(g.siguiente);
+    if (g.nuevasInsignias.length > 0) {
+      // Las nuevas insignias se mostrarán en la zona de padres o en una notificación
     }
   };
 
@@ -110,6 +117,7 @@ function App() {
 
     refrescar();
     setEstadoAdaptabilidad(cargarAdaptabilidad());
+    setEstadoGamificacion(cargarGamificacion());
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
     document.head.appendChild(script);
@@ -356,6 +364,19 @@ function App() {
               <div className="progress-label">{actividadActual.leccion.titulo}</div>
               <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: '100%' }} /></div>
             </div>
+            {estadoGamificacion && (
+              <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.2)', borderRadius: '12px' }}>
+                <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>🏆 Insignias:</div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {obtenerInsigniasDesbloqueadas(estadoGamificacion).map((ins) => (
+                    <span key={ins.id} style={{ fontSize: '1.5rem', title: ins.nombre }}>{ins.emoji}</span>
+                  ))}
+                  {obtenerInsigniasDesbloqueadas(estadoGamificacion).length === 0 && (
+                    <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.5)' }}>Consigue tu primera insignia</span>
+                  )}
+                </div>
+              </div>
+            )}
             {actividadActual.actividad.tipo === 'escuchar_tocar' && (
               <EscucharYTocar
                 objetivo={actividadActual.actividad.objetivo}
