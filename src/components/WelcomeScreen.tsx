@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { AVATARS, saveProfile, type RangeId } from '../data/curriculum';
 import VoicePicker from './VoicePicker';
+import EvaluacionInicial from './EvaluacionInicial';
 
 interface Props {
   onDone: () => void;
+  onEvaluacionListo?: (perfil: any) => void;
 }
 
-export default function WelcomeScreen({ onDone }: Props) {
+export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
   const [nombre, setNombre] = useState('');
   const [rango, setRango] = useState<RangeId>('3-5');
   const [avatar, setAvatar] = useState(AVATARS[0]);
   const [voiceOn, setVoiceOn] = useState(true);
   const [micOk, setMicOk] = useState<string>('');
+  const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
+  const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: RangeId; avatar: string; voiceOn: boolean } | null>(null);
 
   const probarMicro = async () => {
     try {
@@ -25,12 +29,34 @@ export default function WelcomeScreen({ onDone }: Props) {
 
   const guardar = () => {
     const limpio = nombre.trim().slice(0, 20) || 'Peque';
-    saveProfile({ nombre: limpio, rango, avatar, voiceEnabled: voiceOn, createdAt: Date.now() });
-    try {
-      localStorage.setItem('lee_muted', voiceOn ? '0' : '1');
-    } catch { /* noop */ }
-    onDone();
+    const base = { nombre: limpio, rango, avatar, voiceOn };
+    setPerfilBase(base);
+    if (onEvaluacionListo) {
+      onEvaluacionListo(base);
+    } else {
+      saveProfile({ nombre: limpio, rango, avatar, voiceEnabled: voiceOn, createdAt: Date.now() });
+      try { localStorage.setItem('lee_muted', voiceOn ? '0' : '1'); } catch { /* noop */ }
+      onDone();
+    }
   };
+
+  if (mostrandoEvaluacion && perfilBase) {
+    return (
+      <EvaluacionInicial
+        rango={perfilBase.rango}
+        nombre={perfilBase.nombre}
+        avatar={perfilBase.avatar}
+        onListo={(perfil: any) => {
+          try { localStorage.setItem('lee_muted', perfilBase.voiceOn ? '0' : '1'); } catch { /* noop */ }
+          if (onEvaluacionListo) {
+            onEvaluacionListo(perfil);
+          } else {
+            onDone();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="welcome-card">
@@ -94,3 +120,4 @@ export default function WelcomeScreen({ onDone }: Props) {
     </div>
   );
 }
+

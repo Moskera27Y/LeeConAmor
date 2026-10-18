@@ -25,6 +25,8 @@ export interface ChildProfile {
   avatar: string;
   voiceEnabled: boolean;
   createdAt: number;
+  etapa?: string;
+  nivel?: number;
 }
 
 export function nuevoId(): string {

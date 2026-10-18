@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
+import EvaluacionInicial from './components/EvaluacionInicial';
 import { ETAPAS, avanzar, generarNivel, type EstadoMotor } from './data/motorNiveles';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
@@ -42,6 +43,8 @@ function App() {
   const [emailNube, setEmailNube] = useState('');
   const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro'>(SUPABASE_ACTIVO ? 'cargando' : 'fuera');
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
+  const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
+  const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: import('./data/curriculum').RangeId; avatar: string; voiceOn: boolean } | null>(null);
 
   const refrescar = () => {
     const lista = loadProfiles();
@@ -199,6 +202,27 @@ function App() {
   }
 
   if (!profile) {
+    if (mostrandoEvaluacion && perfilBase) {
+      return (
+        <div className="app sky">
+          <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
+          <main className="app-main">
+            <EvaluacionInicial
+              rango={perfilBase.rango}
+              nombre={perfilBase.nombre}
+              avatar={perfilBase.avatar}
+              onListo={(perfil: any) => {
+                saveProfile(perfil);
+                try { localStorage.setItem('lee_muted', perfilBase.voiceOn ? '0' : '1'); } catch { /* noop */ }
+                setMostrandoEvaluacion(false);
+                setPerfilBase(null);
+                setProfile(loadProfile());
+              }}
+            />
+          </main>
+        </div>
+      );
+    }
     return (
       <div className="app sky">
         <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
@@ -206,7 +230,7 @@ function App() {
           <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
           <p className="subtitle">Enseña a leer a tus hijos de forma divertida y efectiva</p>
         </header>
-        <main className="app-main"><WelcomeScreen onDone={() => setProfile(loadProfile())} /></main>
+        <main className="app-main"><WelcomeScreen onDone={() => setProfile(loadProfile())} onEvaluacionListo={(base) => { setPerfilBase(base); setMostrandoEvaluacion(true); }} /></main>
       </div>
     );
   }
