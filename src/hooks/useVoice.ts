@@ -160,7 +160,7 @@ export function useVoice(enabled: boolean) {
   // Resuelve un texto a URL de audio reproducible (cachés + fijos + backend).
   // Devuelve null si fue cancelado o falló. Nunca habla por sí sola.
   const resolverAudio = useCallback(
-    async (texto: string, voz: string, turno: number): Promise<string | null> => {
+    async (corto: string, voz: string, turno: number): Promise<string | null> => {
       const cacheKey = `v4:${voz}:${corto}`;
       if (lastAudio.current && lastAudio.current.texto === corto && lastAudio.current.voz === voz) {
         return lastAudio.current.url;
