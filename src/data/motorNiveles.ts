@@ -5,6 +5,8 @@ export interface EstadoMotor {
   n: number;
   pesos: Record<string, number>;
   aciertos: Record<string, number>;
+  leccionId?: string;
+  actividadIdx?: number;
 }
 
 export const ETAPAS: { id: EtapaId; nombre: string; icono: string; desc: string }[] = [
@@ -157,3 +159,86 @@ function foneticas(targets: string[]): Record<string, string> {
   for (const t of targets) out[t] = FONETICA[t] || t;
   return out;
 }
+
+// ============================================================
+// INTEGRACIÓN CON SECUENCIA DE LECCIONES
+// ============================================================
+
+import { SECUENCIA_LECCIONES, Leccion, ActividadLeccion } from './secuenciaLecciones';
+
+type EtapaLeccionMap = Record<EtapaId, string[]>;
+
+const ETAPA_LECCION: EtapaLeccionMap = {
+  vocales: ['vocales'],
+  silabas: ['silabas_directas', 'silabas_inversas', 'silabas_trabadas'],
+  palabras: ['palabras_2_silabas', 'palabras_3_silabas'],
+  oraciones: ['oraciones'],
+};
+
+export function obtenerLeccionesEtapa(rango: '3-5' | '6-8', etapa: EtapaId): Leccion[] {
+  const todas = SECUENCIA_LECCIONES[rango];
+  return todas.filter((l) => ETAPA_LECCION[l.etapa as EtapaId]?.includes(l.etapa));
+}
+
+export function obtenerLeccionPorOrden(rango: '3-5' | '6-8', etapa: EtapaId, orden: number): Leccion | null {
+  const lecciones = obtenerLeccionesEtapa(rango, etapa);
+  return lecciones.find((l) => l.orden === orden) || null;
+}
+
+export interface ActividadConLeccion {
+  leccion: Leccion;
+  actividad: ActividadLeccion;
+  actividadIndex: number;
+  esUltimaActividad: boolean;
+}
+
+export function obtenerActividadActual(estado: EstadoMotor, rango: '3-5' | '6-8'): ActividadConLeccion | null {
+  const leccionId = estado.leccionId;
+  const actividadIdx = estado.actividadIdx ?? 0;
+
+  if (!leccionId) return null;
+
+  const todas = SECUENCIA_LECCIONES[rango];
+  const leccion = todas.find((l) => l.id === leccionId);
+  if (!leccion) return null;
+
+  const actividad = leccion.actividades[actividadIdx];
+  if (!actividad) return null;
+
+  return {
+    leccion,
+    actividad,
+    actividadIndex: actividadIdx,
+    esUltimaActividad: actividadIdx >= leccion.actividades.length - 1,
+  };
+}
+
+export function avanzarActividad(estado: EstadoMotor, rango: '3-5' | '6-8'): EstadoMotor {
+  const act = obtenerActividadActual(estado, rango);
+  if (!act) return estado;
+
+  if (act.esUltimaActividad) {
+    // Pasar a la siguiente lección
+    const todas = SECUENCIA_LECCIONES[rango];
+    const idxLeccion = todas.findIndex((l) => l.id === estado.leccionId);
+    if (idxLeccion === -1 || idxLeccion >= todas.length - 1) {
+      return { ...estado, actividadIdx: act.actividadIndex }; // quedarse en la última
+    }
+    const siguienteLeccion = todas[idxLeccion + 1];
+    return {
+      ...estado,
+      leccionId: siguienteLeccion.id,
+      actividadIdx: 0,
+    };
+  }
+
+  return { ...estado, actividadIdx: act.actividadIndex + 1 };
+}
+
+export function retrocerActividad(estado: EstadoMotor): EstadoMotor {
+  if (estado.actividadIdx && estado.actividadIdx > 0) {
+    return { ...estado, actividadIdx: estado.actividadIdx - 1 };
+  }
+  return estado;
+}
+

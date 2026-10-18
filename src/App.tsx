@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import EvaluacionInicial from './components/EvaluacionInicial';
-import { ETAPAS, avanzar, generarNivel, type EstadoMotor } from './data/motorNiveles';
+import { ETAPAS, avanzar, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerLeccionPorOrden } from './data/motorNiveles';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
@@ -15,6 +15,12 @@ import GraduationExam from './components/GraduationExam';
 import AuthPadres from './components/AuthPadres';
 import LetterGame from './components/LetterGame';
 import ReadingCard from './components/ReadingCard';
+import EscucharYTocar from './components/EscucharYTocar';
+import FormarSílaba from './components/FormarSílaba';
+import SílabaInicial from './components/SílabaInicial';
+import FormarPalabra from './components/FormarPalabra';
+import LeerConElDedo from './components/LeerConElDedo';
+import Storytime from './components/Storytime';
 
 declare global {
   interface Window {
@@ -24,6 +30,16 @@ declare global {
 
 function esNavegador(): boolean {
   return typeof window !== 'undefined';
+}
+
+function opcionesEscuchar(objetivo: string): string[] {
+  const otros = ['A', 'E', 'I', 'O', 'U'].filter((l) => l !== objetivo).slice(0, 3);
+  return [...otros, objetivo].sort(() => Math.random() - 0.5);
+}
+
+function opcionesSilaba(objetivo: string): string[] {
+  const otros = ['MA', 'PA', 'SA', 'LA'].filter((s) => s !== objetivo).slice(0, 3);
+  return [...otros, objetivo].sort(() => Math.random() - 0.5);
 }
 
 function App() {
@@ -37,6 +53,7 @@ function App() {
   const [progress, setProgress] = useState({ done: 0, total: 3 });
   const [readingIndex, setReadingIndex] = useState(0);
   const [motor, setMotor] = useState<EstadoMotor>({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
+  const [actividadActual, setActividadActual] = useState<any>(null);
   const [graduado, setGraduado] = useState(false);
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -56,6 +73,12 @@ function App() {
       setProgress(loadProgreso(activo.id));
       setMotor(loadMotor(activo.id));
       setGraduado(esGraduado(activo.id));
+      if (activo.leccionId) {
+        const act = obtenerActividadActual({ ...activo, leccionId: activo.leccionId, actividadIdx: activo.actividadIdx ?? 0 }, activo.rango);
+        setActividadActual(act);
+      } else {
+        setActividadActual(null);
+      }
     }
   };
 
@@ -302,50 +325,209 @@ function App() {
           <button className={`tab ${tab === 'leer' ? 'active' : ''}`} onClick={() => setTab('leer')}>🎤 Solo lectura</button>
         </div>
 
-        {tab === 'jugar' ? (
-          <LetterGame
-            key={`${motor.etapa}-${motor.n}`}
-            levels={levels}
-            nombre={profile.nombre}
-            speak={speak}
-            isSpeaking={isSpeaking}
-            score={score}
-            setScore={setScore}
-            onProgress={(done, total) => {
-              setProgress({ done, total });
-              saveProgreso(profile.id, done, total);
-            }}
-            onRepeat={repeat}
-            onResultado={manejarResultado}
-            onAvanzar={avanzarMotor}
-            tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-          />
-        ) : (
-          <div className="letter-game">
-            <BotMessage
-              tipo="info"
-              texto={`Vamos a leer juntitos, ${profile.nombre}. Escucha primero y luego pulsa Leer en voz alta.`}
-              hablando={isSpeaking}
-              nombre={profile.nombre}
-              onRepeat={repeat}
-            />
-            <ReadingCard
-              key={`${card.objetivo}-${readingIndex}`}
-              objetivo={card.objetivo}
-              imagen={card.imagen}
-              pista={card.pista}
-              nombre={profile.nombre}
-              speak={speak}
-              hablarSecuencia={hablarSecuencia}
-              detener={stop}
-              isSpeaking={isSpeaking}
-              onBien={(p) => setScore((s) => s + p)}
-              onSiguiente={() => setReadingIndex((i) => (i + 1) % cards.length)}
-            />
-            <div className="game-actions">
-              <button className="retry-btn" onClick={() => setReadingIndex((i) => (i + 1) % cards.length)}>➡️ Otra palabrita</button>
+        {actividadActual ? (
+          <div className="actividad-leccion" style={{ maxWidth: '500px', margin: '0 auto' }}>
+            <div className="progress-tracker progress-grande" style={{ marginBottom: '1rem' }}>
+              <div className="progress-score">⭐ {score}</div>
+              <div className="progress-label">{actividadActual.leccion.titulo}</div>
+              <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: '100%' }} /></div>
+            </div>
+            {actividadActual.actividad.tipo === 'escuchar_tocar' && (
+              <EscucharYTocar
+                objetivo={actividadActual.actividad.objetivo}
+                opciones={opcionesEscuchar(actividadActual.actividad.objetivo)}
+                correcta={actividadActual.actividad.objetivo}
+                imagen={actividadActual.actividad.imagen}
+                pista={actividadActual.actividad.pista}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onError={() => {
+                  const nuevo = { ...motor, n: motor.n };
+                  setMotor(nuevo);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'formar_silaba' && (
+              <FormarSílaba
+                objetivo={actividadActual.actividad.objetivo}
+                letras={actividadActual.actividad.letras || actividadActual.actividad.objetivo.split('')}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onError={() => {
+                  const nuevo = { ...motor, n: motor.n };
+                  setMotor(nuevo);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'silaba_inicial' && (
+              <SílabaInicial
+                objetivo={actividadActual.actividad.objetivo}
+                palabra={actividadActual.actividad.palabra || actividadActual.actividad.objetivo}
+                imagen={actividadActual.actividad.imagen}
+                opciones={opcionesSilaba(actividadActual.actividad.objetivo)}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onError={() => {
+                  const nuevo = { ...motor, n: motor.n };
+                  setMotor(nuevo);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'formar_palabra' && (
+              <FormarPalabra
+                objetivo={actividadActual.actividad.objetivo}
+                silabas={actividadActual.actividad.silabas || actividadActual.actividad.objetivo.split('')}
+                imagen={actividadActual.actividad.imagen}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onError={() => {
+                  const nuevo = { ...motor, n: motor.n };
+                  setMotor(nuevo);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'leer_con_dedo' && (
+              <LeerConElDedo
+                objetivo={actividadActual.actividad.objetivo}
+                imagen={actividadActual.actividad.imagen}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onCorrecto={() => {
+                  setScore((s) => s + 10);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onError={() => {
+                  const nuevo = { ...motor, n: motor.n };
+                  setMotor(nuevo);
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'leer_voz_alta' && (
+              <ReadingCard
+                objetivo={actividadActual.actividad.objetivo}
+                imagen={actividadActual.actividad.imagen || '📖'}
+                pista={actividadActual.actividad.pista || ''}
+                nombre={profile.nombre}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                detener={stop}
+                isSpeaking={isSpeaking}
+                onBien={(p) => {
+                  setScore((s) => s + p);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                onSiguiente={() => {
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+              />
+            )}
+            {actividadActual.actividad.tipo === 'storytime' && (
+              <Storytime
+                texto={actividadActual.actividad.textoTTS || actividadActual.actividad.objetivo}
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onTerminado={() => {
+                  setScore((s) => s + 20);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  setMotor(nuevo);
+                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                }}
+                isSpeaking={isSpeaking}
+              />
+            )}
+            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+              <button className="retry-btn" onClick={() => {
+                const nuevo = retrocerActividad(motor);
+                setMotor(nuevo);
+                setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+              }} style={{ marginRight: '0.5rem' }}>
+                ⏹ Repetir
+              </button>
             </div>
           </div>
+        ) : (
+          <>
+            {tab === 'jugar' ? (
+              <LetterGame
+                key={`${motor.etapa}-${motor.n}`}
+                levels={levels}
+                nombre={profile.nombre}
+                speak={speak}
+                isSpeaking={isSpeaking}
+                score={score}
+                setScore={setScore}
+                onProgress={(done, total) => {
+                  setProgress({ done, total });
+                  saveProgreso(profile.id, done, total);
+                }}
+                onRepeat={repeat}
+                onResultado={manejarResultado}
+                onAvanzar={avanzarMotor}
+                tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+              />
+            ) : (
+              <div className="letter-game">
+                <BotMessage
+                  tipo="info"
+                  texto={`Vamos a leer juntitos, ${profile.nombre}. Escucha primero y luego pulsa Leer en voz alta.`}
+                  hablando={isSpeaking}
+                  nombre={profile.nombre}
+                  onRepeat={repeat}
+                />
+                <ReadingCard
+                  key={`${card.objetivo}-${readingIndex}`}
+                  objetivo={card.objetivo}
+                  imagen={card.imagen}
+                  pista={card.pista}
+                  nombre={profile.nombre}
+                  speak={speak}
+                  hablarSecuencia={hablarSecuencia}
+                  detener={stop}
+                  isSpeaking={isSpeaking}
+                  onBien={(p) => setScore((s) => s + p)}
+                  onSiguiente={() => setReadingIndex((i) => (i + 1) % cards.length)}
+                />
+                <div className="game-actions">
+                  <button className="retry-btn" onClick={() => setReadingIndex((i) => (i + 1) % cards.length)}>➡️ Otra palabrita</button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
