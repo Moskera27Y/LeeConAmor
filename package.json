@@ -8,6 +8,8 @@
     "voz:nombres": "node server/precache-nombres.cjs",
     "todo": "concurrently -n api,web -c magenta,cyan \"npm:api:dev\" \"npm:dev\"",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -31,6 +33,7 @@
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^10.0.6",
     "formidable": "^3.5.4",
+    "typescript": "^5.9.3",
     "vite": "^5.2.0"
   }
 }

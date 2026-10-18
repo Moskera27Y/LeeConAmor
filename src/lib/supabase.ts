@@ -22,15 +22,35 @@ export function setRecordar(v: boolean) {
 }
 
 let cliente: SupabaseClient | null = null;
+let sesionPersistida = true;
 
-export function supabase(): SupabaseClient | null {
+export function supabase(recordarSesion?: boolean): SupabaseClient | null {
   if (!SUPABASE_ACTIVO) return null;
+  // La preferencia de "recordar sesión" cambia el almacenamiento: hay que recrear el cliente.
+  if (recordarSesion !== undefined && recordarSesion !== sesionPersistida) {
+    sesionPersistida = recordarSesion;
+    cliente = null;
+  }
   if (!cliente) {
     cliente = createClient(URL as string, ANON as string, {
-      auth: { storage: localStorage, persistSession: true, autoRefreshToken: true },
+      auth: {
+        storage: recordarSesion === false ? memoryStorage() : localStorage,
+        persistSession: recordarSesion !== false,
+        autoRefreshToken: true,
+      },
     });
   }
   return cliente;
+}
+
+// Guardado en memoria (se pierde al cerrar la pestaña) cuando el adulto apaga "recordar".
+function memoryStorage() {
+  let cache: Record<string, string> = {};
+  return {
+    getItem: (k: string) => (k in cache ? cache[k] : null),
+    setItem: (k: string, v: string) => { cache[k] = String(v); },
+    removeItem: (k: string) => { delete cache[k]; },
+  };
 }
 
 // Email de la sesión activa (o '' si no hay)

@@ -147,6 +147,7 @@ export function useReadingLesson(objetivo: string) {
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
     let raf = 0;
     let ctx: AudioContext | null = null;
+    let ultimoVol = 0;
     try {
       ctx = new Ctx();
       const src = ctx.createMediaStreamSource(stream);

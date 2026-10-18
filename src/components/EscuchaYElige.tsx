@@ -63,7 +63,7 @@ export default function EscuchaYElige({
 
     await hablarSecuencia([`¿Dónde está ${objetivo.texto}?`]);
     setEscuchando(false);
-  }, [hablarSecuencia, isSpeaking, rango, todasLasOpciones]);
+  }, [hablarSecuencia, isSpeaking, todasLasOpciones]);
 
   const elegir = (opcion: OpcionImagen) => {
     if (resultado || !objetivoActual) return;
@@ -80,10 +80,13 @@ export default function EscuchaYElige({
     }
   };
 
-  const reiniciar = () => {
+  // following: tras acertar o fallar se ofrece siempre seguir jugando.
+  const siguienteRonda = () => {
     setResultado(null);
     setSeleccionada(null);
     setObjetivoActual(null);
+    setOpciones([]);
+    iniciarRonda();
   };
 
   return (
@@ -95,10 +98,10 @@ export default function EscuchaYElige({
       <button
         className="listen-btn"
         onClick={iniciarRonda}
-        disabled={isSpeaking || escuchando || resultado === 'correcto'}
+        disabled={isSpeaking || escuchando}
         style={{ marginBottom: '1.5rem', minHeight: '56px' }}
       >
-        {escuchando ? '🦉 Escuchando…' : '🔊 Escuchar'}
+        {escuchando ? '🦉 Escuchando…' : isSpeaking ? '💛 Léo habla…' : '🔊 Escuchar'}
       </button>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
@@ -110,7 +113,7 @@ export default function EscuchaYElige({
             <button
               key={op.id}
               onClick={() => elegir(op)}
-              disabled={resultado || !escuchando || isSpeaking}
+              disabled={isSpeaking || (escuchando ? resultado === 'correcto' : false)}
               className={`letter-btn ${estáSeleccionada ? (estáCorrecta ? 'selected' : estáIncorrecta ? 'wrong' : '') : ''}`}
               style={{
                 width: '100%',
@@ -129,6 +132,14 @@ export default function EscuchaYElige({
           );
         })}
       </div>
+
+      {resultado && (
+        <div style={{ marginTop: '1.2rem', textAlign: 'center' }}>
+          <button className="next-btn" onClick={siguienteRonda} disabled={isSpeaking} style={{ minHeight: '52px' }}>
+            {resultado === 'correcto' ? '➡️ Otra ronda' : '🔄 Intentar otra vez'}
+          </button>
+        </div>
+      )}
 
       {!resultado && opciones.length === 0 && (
         <p style={{ color: '#666', fontSize: '0.9rem' }}>Toca "Escuchar" para empezar</p>

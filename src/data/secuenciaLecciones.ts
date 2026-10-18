@@ -18,6 +18,9 @@ export interface ActividadLeccion {
   objetivo: string;
   imagen?: string;
   pista?: string;
+  letras?: string[];    // para formar_silaba: letras que forman la sílaba
+  palabra?: string;     // para silaba_inicial: palabra completa
+  silabas?: string[];   // para formar_palabra: sílabas que forman la palabra
   audioFijo?: string; // clave en AUDIO_FIJO si existe
   textoTTS?: string;  // texto para generar con TTS si no hay audio fijo
   repeticion?: number; // cuántas veces repetir la actividad

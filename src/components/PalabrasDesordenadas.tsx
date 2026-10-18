@@ -43,14 +43,12 @@ export default function PalabrasDesordenadas({
   }, []);
 
   const agregarSilaba = (silaba: string) => {
-    if (resultado || !actual) return;
+    if (resultado === 'correcto' || !actual) return;
     const siguiente = formada + silaba;
     if (!actual.palabra.startsWith(siguiente)) {
       setResultado('incorrecto');
       speak(`Casi. La palabra es ${actual.palabra}. Intenta otra vez.`);
       onError();
-      setFormada('');
-      setSilabasUsadas([]);
       return;
     }
     setFormada(siguiente);
@@ -64,11 +62,13 @@ export default function PalabrasDesordenadas({
   };
 
   const borrar = () => {
-    if (resultado || silabasUsadas.length === 0) return;
-    const ultima = silabasUsadas.pop();
+    if (resultado === 'correcto' || silabasUsadas.length === 0) return;
+    const nuevas = [...silabasUsadas];
+    const ultima = nuevas.pop();
     if (ultima) {
-      setSilabasUsadas(silabasUsadas);
+      setSilabasUsadas(nuevas);
       setFormada(formada.slice(0, -ultima.length));
+      setResultado(null);
     }
   };
 
@@ -76,6 +76,10 @@ export default function PalabrasDesordenadas({
     setFormada('');
     setSilabasUsadas([]);
     setResultado(null);
+  };
+
+  const siguiente = () => {
+    iniciar();
   };
 
   return (
@@ -100,22 +104,22 @@ export default function PalabrasDesordenadas({
             {formada || '—'}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-            {[...new Set(actual.silabas)].map((s) => (
+            {(actual.silabas as string[]).map((s) => (
               <button
                 key={s}
                 onClick={() => agregarSilaba(s)}
-                disabled={resultado || formada.length >= actual.palabra.length || isSpeaking}
-                className="letter-btn"
+                disabled={resultado === 'correcto' || formada.length >= actual.palabra.length || isSpeaking}
+                className={`letter-btn ${formada.endsWith(s) && !resultado ? 'selected' : ''}`}
                 style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
               >
                 {s}
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={borrar}
-              disabled={silabasUsadas.length === 0 || resultado || isSpeaking}
+              disabled={silabasUsadas.length === 0 || resultado === 'correcto' || isSpeaking}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >
@@ -123,12 +127,17 @@ export default function PalabrasDesordenadas({
             </button>
             <button
               onClick={reiniciar}
-              disabled={resultado || isSpeaking}
+              disabled={isSpeaking}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >
-              🔄 Reiniciar
+              {resultado === 'incorrecto' ? '🔄 Reintentar' : '🔄 Reiniciar'}
             </button>
+            {resultado === 'correcto' && (
+              <button onClick={siguiente} className="next-btn" style={{ minHeight: '48px', fontSize: '0.9rem' }}>
+                ➡️ Otra palabra
+              </button>
+            )}
           </div>
         </>
       )}

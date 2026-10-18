@@ -2,6 +2,9 @@
 // Vercel: define GEMINI_API_KEY (gratis en https://aistudio.google.com).
 // Sin key -> el frontend usa la voz nativa del navegador automáticamente.
 
+// Vercel Hobby corta las funciones a los 10s por defecto: hay que declarar el limite.
+export const config = { maxDuration: 60 };
+
 const VOCES_VALIDAS = ['Callirrhoe'];
 const CACHE = new Map<string, { audio: string; mime: string; voz: string }>();
 // Modelos en orden: lite (más cuota) y luego el normal como respaldo.
@@ -70,7 +73,7 @@ export default async function handler(req: any, res: any) {
   if (clonUrl) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 120000);
+      const timer = setTimeout(() => controller.abort(), 45000);
       const rc = await fetch(`${clonUrl}/clonar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

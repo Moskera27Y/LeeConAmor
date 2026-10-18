@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { speak as speakGlobal } from '../hooks/useVoice';
 
 interface Props {
   objetivo: string;

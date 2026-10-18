@@ -1,6 +1,14 @@
 import { supabase, SUPABASE_ACTIVO } from './supabase';
 import { loadMotor, loadScore, esGraduado, loadProfiles, saveProfile, nuevoId, type ChildProfile } from '../data/curriculum';
 
+// Orden canónico de etapas (de menor a mayor dificultad) para comparar avances.
+const ORDEN_ETAPAS = ['vocales', 'silabas', 'palabras', 'oraciones'];
+
+function pesoEtapa(etapa: string): number {
+  const i = ORDEN_ETAPAS.indexOf(etapa);
+  return i < 0 ? 0 : i * 100;
+}
+
 const PENDIENTE = 'lee_sync_pendiente';
 const NUBE = (idLocal: string) => `lee_nube_${idLocal}`;
 
@@ -69,6 +77,8 @@ export async function sincronizarAhora(): Promise<boolean> {
         pesos: motor.pesos,
         aciertos: motor.aciertos,
         score: loadScore(l.id),
+        leccion_id: motor.leccionId || null,
+        actividad_idx: motor.actividadIdx ?? null,
         updated_at: new Date().toISOString(),
       });
     }
@@ -103,12 +113,20 @@ export async function bajarNube(): Promise<boolean> {
       } catch { /* noop */ }
       if (prog) {
         const aqui = loadMotor(local.id);
-        // Si la nube trae más avance, adoptarlo
-        const aquiN = aqui.n + (['vocales', 'silabas', 'abecedario', 'repaso'].indexOf(aqui.etapa) * 100);
-        const allaN = (prog.n || 0) + (['vocales', 'silabas', 'abecedario', 'repaso'].indexOf(prog.etapa) * 100);
+        // Si la nube trae más avance, adoptarlo (mismo criterio etapa+nivel)
+        const aquiN = (pesoEtapa(aqui.etapa) || aqui.n);
+        const allaN = (pesoEtapa(prog.etapa) || prog.n || 0);
         if (allaN > aquiN) {
+          const motorNube = {
+            etapa: prog.etapa || aqui.etapa,
+            n: prog.n || 0,
+            pesos: prog.pesos || {},
+            aciertos: prog.aciertos || {},
+            ...(prog.leccion_id ? { leccionId: prog.leccion_id } : {}),
+            ...(prog.actividad_idx != null ? { actividadIdx: prog.actividad_idx } : {}),
+          };
           try {
-            localStorage.setItem(`lee_motor_${local.id}`, JSON.stringify({ etapa: prog.etapa, n: prog.n, pesos: prog.pesos || {}, aciertos: prog.aciertos || {} }));
+            localStorage.setItem(`lee_motor_${local.id}`, JSON.stringify(motorNube));
             localStorage.setItem(`lee_score_${local.id}`, String(prog.score || 0));
             if (h.graduado) localStorage.setItem(`lee_graduado_${local.id}`, '1');
           } catch { /* noop */ }

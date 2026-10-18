@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
-import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
+import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import EvaluacionInicial from './components/EvaluacionInicial';
-import { ETAPAS, avanzar, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerLeccionPorOrden } from './data/motorNiveles';
+import { ETAPAS, ETAPAS_POR_RANGO, avanzar, asegurarLeccionInicial, etapaDeLeccion, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones } from './data/motorNiveles';
+import { SECUENCIA_LECCIONES } from './data/secuenciaLecciones';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
-import { registrarEvento, obtenerRecomendacionAdaptativa, cargarAdaptabilidad } from './lib/adaptividad';
+import { registrarEvento, cargarAdaptabilidad } from './lib/adaptividad';
 import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas } from './lib/gamificacion';
 import EscucharYElige from './components/EscuchaYElige';
 import FormarSílabaTrabada from './components/FormarSílabaTrabada';
@@ -52,7 +53,7 @@ function opcionesSilaba(objetivo: string): string[] {
 function App() {
   const [profile, setProfile] = useState<ChildProfile | null>(null);
   const [perfiles, setPerfiles] = useState<ChildProfile[]>([]);
-  const [tab, setTab] = useState<'jugar' | 'leer'>('jugar');
+  const [tab, setTab] = useState<'jugar' | 'leer' | 'mas'>('jugar');
   const [showPadres, setShowPadres] = useState(false);
   const [showPeques, setShowPeques] = useState(false);
   const pressTimer = useRef<number | null>(null);
@@ -71,32 +72,62 @@ function App() {
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
   const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: import('./data/curriculum').RangeId; avatar: string; voiceOn: boolean } | null>(null);
-  const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | null>(null);
+  const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | 'letras' | null>(null);
 
-  const manejarCorrecto = (actividadId: string) => {
-    setScore((s) => s + 10);
-    const siguiente = registrarEvento(estadoAdaptabilidad, 'acierto', actividadId);
-    setEstadoAdaptabilidad(siguiente);
-    const rec = obtenerRecomendacionAdaptativa(siguiente, actividadId);
-    if (rec === 'avanzar') {
-      const nuevo = avanzarActividad(motor, profile.rango);
-      setMotor(nuevo);
-      setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-    }
-    const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1, nivelAlcanzado: motor.n + 1 });
-    setEstadoGamificacion(g.siguiente);
-    if (g.nuevasInsignias.length > 0) {
-      // Las nuevas insignias se mostrarán en la zona de padres o en una notificación
+  // Aplica un cambio de motor y lo persiste, refrescando la actividad visible.
+  const aplicarMotor = (nuevo: EstadoMotor) => {
+    if (!profile) return;
+    saveMotor(profile.id, nuevo);
+    setMotor(nuevo);
+    setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+  };
+
+  const avanzarALuego = () => {
+    if (!profile) return;
+    const base = actividadActual ? motor : asegurarLeccionInicial(motor, profile.rango, profile.evaluacionInicial);
+    const nuevo = avanzarActividad(base, profile.rango);
+    aplicarMotor(nuevo);
+    const act = obtenerActividadActual(nuevo, profile.rango);
+    // Aviso + celebración al cambiar de lección
+    if (act && (!actividadActual || act.leccion.id !== actividadActual.leccion.id)) {
+      speak(act.leccion.audioIntro || act.leccion.titulo);
+      try {
+        if (esNavegador()) {
+          window.confetti?.({ particleCount: 90, spread: 110, origin: { y: 0.6 } });
+        }
+      } catch { /* noop */ }
     }
   };
 
-  const manejarError = (actividadId: string) => {
-    const siguiente = registrarEvento(estadoAdaptabilidad, 'error', actividadId);
-    setEstadoAdaptabilidad(siguiente);
-    const rec = obtenerRecomendacionAdaptativa(siguiente, actividadId);
-    if (rec === 'refuerzo') {
-      // Mantener misma actividad para refuerzo; no avanzamos
+  const manejarCorrecto = (actividadId: string) => {
+    if (!profile) return;
+    setScore((s) => s + 10);
+    const ad = registrarEvento(estadoAdaptabilidad, 'acierto', actividadId);
+    setEstadoAdaptabilidad(ad);
+
+    const g = actualizarGamificacion(estadoGamificacion, {
+      aciertos: 1,
+      rachaDias: ad.rachaDias,
+      nivelAlcanzado: ad.rachaAciertos,
+    });
+    setEstadoGamificacion(g.siguiente);
+    if (g.nuevasInsignias.length > 0) {
+      speak(`¡Insignia nueva: ${g.nuevasInsignias[0].nombre}! ${g.nuevasInsignias[0].descripcion}`);
+      try {
+        if (esNavegador()) window.confetti?.({ particleCount: 120, spread: 140, origin: { y: 0.5 } });
+      } catch { /* noop */ }
     }
+    // Avanza siempre: la adaptabilidad ya refuerza quedándose en la misma actividad
+    // cuando el niño comete errores seguidos (ver obtenerRecomendacionAdaptativa).
+    avanzarALuego();
+  };
+
+  const manejarError = (actividadId: string) => {
+    if (!profile) return;
+    const ad = registrarEvento(estadoAdaptabilidad || cargarAdaptabilidad(), 'error', actividadId);
+    setEstadoAdaptabilidad(ad);
+    const g = actualizarGamificacion(estadoGamificacion, { errores: 1, rachaDias: ad.rachaDias });
+    setEstadoGamificacion(g.siguiente);
   };
 
   const refrescar = () => {
@@ -107,14 +138,17 @@ function App() {
     if (activo) {
       setScore(loadScore(activo.id));
       setProgress(loadProgreso(activo.id));
-      setMotor(loadMotor(activo.id));
+      // El motor guarda el avance (incluida la lección activa). Si el niño aún no
+      // tiene lección asignada, se le pone la primera de su rango para que el
+      // recorrido guiado de lecciones arranque solo.
+      const guardado = loadMotor(activo.id);
+      const conLeccion = guardado.leccionId
+        ? guardado
+        : asegurarLeccionInicial(guardado, activo.rango, activo.evaluacionInicial);
+      if (!guardado.leccionId) saveMotor(activo.id, conLeccion);
+      setMotor(conLeccion);
       setGraduado(esGraduado(activo.id));
-      if (activo.leccionId) {
-        const act = obtenerActividadActual({ ...activo, leccionId: activo.leccionId, actividadIdx: activo.actividadIdx ?? 0 }, activo.rango);
-        setActividadActual(act);
-      } else {
-        setActividadActual(null);
-      }
+      setActividadActual(obtenerActividadActual(conLeccion, activo.rango));
     }
   };
 
@@ -198,11 +232,13 @@ function App() {
     if (profile) asegurarVozNombre(profile.nombre);
   }, [profile]);
 
-  const motivoTexto =
-    motivo === 'apagado' ? 'Léo no pudo hablar con su voz suave (prende el backend con iniciar-leeconamor.bat).' :
-    motivo === 'key' ? 'Léo no pudo hablar con su voz suave (revisa la clave de Gemini en .env.local).' :
-    motivo === 'cuota' ? 'Léo está descansando su voz un momento.' :
-    motivo === 'otro' ? 'Léo no pudo hablar con su voz suave.' : '';
+  // Si hay voz nativa disponible, la app sigue hablando aunque el backend falle,
+// así que solo avisamos cuando de verdad no hay ninguna voz.
+const motivoTexto =
+    motivo === 'key' ? 'Léo no pudo usar su voz suave (revisa la clave de Gemini). Usa la voz del navegador.' :
+    motivo === 'cuota' ? 'Léo está descansando su voz un momento. Usa la voz del navegador.' :
+    motivo === 'apagado' ? 'Léo no pudo usar su voz suave (prende el backend). Usa la voz del navegador.' :
+    motivo === 'otro' ? 'Léo no pudo usar su voz suave. Usa la voz del navegador.' : '';
 
   // Mantener presionado el animalito 1.5s abre la zona de padres
   const pressStart = () => {
@@ -298,10 +334,22 @@ function App() {
 
   const levels = [generarNivel(motor, profile.rango)];
   const etapaInfo = ETAPAS.find((e) => e.id === motor.etapa) || ETAPAS[0];
-  const etapaIdx = ETAPAS.findIndex((e) => e.id === motor.etapa);
+  const etapasDelRango = ETAPAS_POR_RANGO[profile.rango];
+  const etapaIdx = Math.max(0, etapasDelRango.indexOf(motor.etapa));
   const cards = READING_CARDS[profile.rango];
   const card = cards[readingIndex % cards.length];
-  const pct = Math.min(100, Math.round(((etapaIdx * 6 + Math.min(motor.n, 6)) / 24) * 100));
+  // El progreso se mide sobre las etapas reales del rango (3 etapas en 3-5, 4 en 6-8)
+  const pasosPorEtapa = 6;
+  const pct = Math.min(100, Math.round(((etapaIdx * pasosPorEtapa + Math.min(motor.n, pasosPorEtapa)) / (etapasDelRango.length * pasosPorEtapa)) * 100));
+
+  // Progreso dentro de la lección guiada
+  const totalLecciones = obtenerTotalLecciones(profile.rango);
+  const leccionNum = actividadActual
+    ? SECUENCIA_LECCIONES[profile.rango].findIndex((l) => l.id === actividadActual.leccion.id) + 1
+    : 1;
+  const pctLeccion = actividadActual
+    ? Math.round(((actividadActual.actividadIndex + 1) / actividadActual.leccion.actividades.length) * 100)
+    : 0;
 
   const manejarResultado = (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => {
     if (!profile) return;
@@ -352,10 +400,17 @@ function App() {
         <div className="progress-tracker progress-grande">
           <div className="progress-score">⭐ {score}</div>
           <div className="progress-label">{etapaInfo.icono} {etapaInfo.nombre} · Nivel {motor.n + 1}</div>
-          {necesitaToque && (
-            <button className="btn-escuchar-grande touch-to-listen" onClick={repeat} aria-label="Escuchar de nuevo">🔊</button>
-          )}
           <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+            {isSpeaking && (
+              <span className="is-speaking-indicator">
+                <span className="speaking-dot" /> Léo está hablando…
+              </span>
+            )}
+            {(necesitaToque || isSpeaking) && (
+              <button className="btn-escuchar-grande touch-to-listen" onClick={repeat} aria-label="Escuchar de nuevo">🔊</button>
+            )}
+          </div>
         </div>
 
         <div className="tabs">
@@ -364,22 +419,34 @@ function App() {
           <button className={`tab ${tab === 'mas' ? 'active' : ''}`} onClick={() => setTab('mas')}>🎲 Más juegos</button>
         </div>
 
-        {actividadActual ? (
+        {tab === 'jugar' && actividadActual && (
           <div className="actividad-leccion" style={{ maxWidth: '500px', margin: '0 auto' }}>
             <div className="progress-tracker progress-grande" style={{ marginBottom: '1rem' }}>
               <div className="progress-score">⭐ {score}</div>
-              <div className="progress-label">{actividadActual.leccion.titulo}</div>
-              <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: '100%' }} /></div>
+              <div className="progress-label">
+                {actividadActual.leccion.titulo} · {actividadActual.actividadIndex + 1}/{actividadActual.leccion.actividades.length}
+              </div>
+              <div className="progress-bar progress-bar-grande">
+                <div className="progress-fill" style={{ width: `${pctLeccion}%` }} />
+              </div>
+              <div className="progress-label" style={{ fontSize: '0.8rem', opacity: 0.85, marginTop: '0.35rem' }}>
+                Lección {leccionNum}/{totalLecciones} · {etapaInfo.icono} {etapaInfo.nombre}
+              </div>
             </div>
             {estadoGamificacion && (
-              <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.2)', borderRadius: '12px' }}>
-                <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.5rem' }}>🏆 Insignias:</div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.9)', borderRadius: '16px' }}>
+                <div style={{ fontSize: '0.9rem', color: '#764ba2', marginBottom: '0.5rem', fontWeight: '800' }}>🏆 Tus insignias</div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   {obtenerInsigniasDesbloqueadas(estadoGamificacion).map((ins) => (
-                    <span key={ins.id} style={{ fontSize: '1.5rem', title: ins.nombre }}>{ins.emoji}</span>
+                    <span key={ins.id} className="insignia-badge" title={ins.descripcion}>{ins.emoji}</span>
                   ))}
                   {obtenerInsigniasDesbloqueadas(estadoGamificacion).length === 0 && (
-                    <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.5)' }}>Consigue tu primera insignia</span>
+                    <span style={{ fontSize: '0.88rem', color: '#8a7ba8' }}>Gana tu primera insignia 💛</span>
+                  )}
+                  {estadoGamificacion.rachaDias > 0 && (
+                    <span style={{ marginLeft: 'auto', fontSize: '0.85rem', fontWeight: '800', color: '#ff6b6b' }}>
+                      🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
+                    </span>
                   )}
                 </div>
               </div>
@@ -457,15 +524,9 @@ function App() {
                 isSpeaking={isSpeaking}
                 onBien={(p) => {
                   setScore((s) => s + p);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                  manejarCorrecto(actividadActual.actividad.objetivo);
                 }}
-                onSiguiente={() => {
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-                }}
+                onSiguiente={avanzarALuego}
               />
             )}
             {actividadActual.actividad.tipo === 'storytime' && (
@@ -475,45 +536,52 @@ function App() {
                 hablarSecuencia={hablarSecuencia}
                 onTerminado={() => {
                   setScore((s) => s + 20);
-                  const nuevo = avanzarActividad(motor, profile.rango);
-                  setMotor(nuevo);
-                  setActividadActual(obtenerActividadActual(nuevo, profile.rango));
+                  manejarCorrecto(actividadActual.actividad.objetivo);
                 }}
                 isSpeaking={isSpeaking}
               />
             )}
-            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-              <button className="retry-btn" onClick={() => {
-                const nuevo = retrocerActividad(motor);
-                setMotor(nuevo);
-                setActividadActual(obtenerActividadActual(nuevo, profile.rango));
-              }} style={{ marginRight: '0.5rem' }}>
-                ⏹ Repetir
+            <div style={{ marginTop: '1rem', textAlign: 'center', display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="retry-btn"
+                onClick={() => {
+                  const nuevo = retrocerActividad(motor);
+                  if (nuevo !== motor) aplicarMotor(nuevo);
+                }}
+                disabled={!motor.actividadIdx}
+              >
+                ⏪ Anterior
+              </button>
+              <button className="next-btn" onClick={avanzarALuego}>
+                {actividadActual.esUltimaActividad ? '¡Siguiente lección! →' : 'Siguiente →'}
               </button>
             </div>
+            <p style={{ textAlign: 'center', color: '#fff', opacity: 0.8, fontSize: '0.82rem', marginTop: '0.8rem' }}>
+              {actividadActual.leccion.descripcion}
+            </p>
           </div>
-        ) : (
-          <>
-            {tab === 'jugar' ? (
-              <LetterGame
-                key={`${motor.etapa}-${motor.n}`}
-                levels={levels}
-                nombre={profile.nombre}
-                speak={speak}
-                isSpeaking={isSpeaking}
-                score={score}
-                setScore={setScore}
-                onProgress={(done, total) => {
-                  setProgress({ done, total });
-                  saveProgreso(profile.id, done, total);
-                }}
-                onRepeat={repeat}
-                onResultado={manejarResultado}
-                onAvanzar={avanzarMotor}
-                tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-              />
-            ) : (
-              <div className="letter-game">
+        )}
+        {tab === 'jugar' && !actividadActual && (
+          <LetterGame
+            key={`${motor.etapa}-${motor.n}`}
+            levels={levels}
+            nombre={profile.nombre}
+            speak={speak}
+            isSpeaking={isSpeaking}
+            score={score}
+            setScore={setScore}
+            onProgress={(done, total) => {
+              setProgress({ done, total });
+              saveProgreso(profile.id, done, total);
+            }}
+            onRepeat={repeat}
+            onResultado={manejarResultado}
+            onAvanzar={avanzarMotor}
+            tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+          />
+        )}
+        {tab === 'leer' && (
+          <div className="letter-game">
                 <BotMessage
                   tipo="info"
                   texto={`Vamos a leer juntitos, ${profile.nombre}. Escucha primero y luego pulsa Leer en voz alta.`}
@@ -538,8 +606,6 @@ function App() {
                   <button className="retry-btn" onClick={() => setReadingIndex((i) => (i + 1) % cards.length)}>➡️ Otra palabrita</button>
                 </div>
               </div>
-            )}
-          </>
         )}
         {tab === 'mas' && (
           <div className="mas-juegos" style={{ maxWidth: '500px', margin: '0 auto', padding: '1rem' }}>
@@ -575,7 +641,32 @@ function App() {
               >
                 🧠 Memoria auditiva
               </button>
+              <button
+                className={`icon-btn ${masJuego === 'letras' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('letras')}
+              >
+                🅰️ Juego libre
+              </button>
             </div>
+            {masJuego === 'letras' && (
+              <LetterGame
+                key={`libre-${motor.etapa}-${motor.n}`}
+                levels={levels}
+                nombre={profile.nombre}
+                speak={speak}
+                isSpeaking={isSpeaking}
+                score={score}
+                setScore={setScore}
+                onProgress={(done, total) => {
+                  setProgress({ done, total });
+                  saveProgreso(profile.id, done, total);
+                }}
+                onRepeat={repeat}
+                onResultado={manejarResultado}
+                onAvanzar={avanzarMotor}
+                tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+              />
+            )}
             {masJuego === 'escucha_elige' && (
               <EscucharYElige
                 rango={profile.rango}
@@ -720,6 +811,8 @@ function App() {
             if (profile) {
               marcarGraduado(profile.id);
               setGraduado(true);
+              const g = actualizarGamificacion(estadoGamificacion, { graduado: true });
+              setEstadoGamificacion(g.siguiente);
             }
           }}
           onClose={() => setShowExamen(false)}

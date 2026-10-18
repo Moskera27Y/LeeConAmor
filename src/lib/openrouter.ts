@@ -1,27 +1,37 @@
-const API_KEY = 'oc_sk_35b232cf5b7a_L7JZYnceD6MVUrRiHbCaP_b3dkqnvls7';
-const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
+// Cliente de la recomendación con IA.
+// La API key vive SOLO en el servidor (/api/recomendar). Este modulo no tiene secretos.
 
-export async function openRouterChat(messages: { role: string; content: string }[]): Promise<string> {
-  const r = await fetch(BASE_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${API_KEY}`,
-      'HTTP-Referer': 'https://lee-con-amor.vercel.app/',
-      'X-Title': 'LeeConAmor',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      temperature: 0.3,
-      max_tokens: 300,
-    }),
-  });
-  if (!r.ok) {
-    const txt = await r.text().catch(() => '');
-    throw new Error(`OpenRouter error ${r.status}: ${txt}`);
+const BASE_URL = '/api/recomendar';
+
+export interface RespuestaIA {
+  nivelRecomendado: number | null;
+  etapaRecomendada: string | null;
+  observaciones: string[] | null;
+}
+
+export async function consultarRecomendacionIA(
+  respuestas: Record<string, string>,
+  rango: string,
+  nombre: string,
+  resumenLocal: string
+): Promise<RespuestaIA | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
+    const r = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ respuestas, rango, nombre, resumenLocal }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    const data = (await r.json()) as RespuestaIA;
+    if (typeof data?.nivelRecomendado !== 'object' && data?.nivelRecomendado === null && data?.etapaRecomendada === null) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
   }
-  const data = await r.json();
-  return data?.choices?.[0]?.message?.content || '';
 }

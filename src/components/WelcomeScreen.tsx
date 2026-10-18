@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AVATARS, saveProfile, type RangeId } from '../data/curriculum';
+import { AVATARS, nuevoId, saveProfile, type RangeId } from '../data/curriculum';
 import VoicePicker from './VoicePicker';
 import EvaluacionInicial from './EvaluacionInicial';
 
@@ -34,7 +34,7 @@ export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
     if (onEvaluacionListo) {
       onEvaluacionListo(base);
     } else {
-      saveProfile({ nombre: limpio, rango, avatar, voiceEnabled: voiceOn, createdAt: Date.now() });
+      saveProfile({ id: nuevoId(), nombre: limpio, rango, avatar, voiceEnabled: voiceOn, createdAt: Date.now() });
       try { localStorage.setItem('lee_muted', voiceOn ? '0' : '1'); } catch { /* noop */ }
       onDone();
     }

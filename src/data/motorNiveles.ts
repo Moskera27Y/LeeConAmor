@@ -1,4 +1,4 @@
-export type EtapaId = 'vocales' | 'silabas' | 'palabras' | 'oraciones';
+﻿export type EtapaId = 'vocales' | 'silabas' | 'palabras' | 'oraciones';
 
 export interface EstadoMotor {
   etapa: EtapaId;
@@ -23,12 +23,12 @@ export const ETAPAS: { id: EtapaId; nombre: string; icono: string; desc: string 
 ];
 
 // Obtener las etapas disponibles para un rango
-export function obtenerEtapasDisponibles(rango: '3-5' | '6-8'): EtapaId[] {
+export function obtenerEtapasDisponibles(rango: RangeId): EtapaId[] {
   return ETAPAS_POR_RANGO[rango];
 }
 
 // Verificar si una etapa está disponible para un rango
-export function etapaDisponible(rango: '3-5' | '6-8', etapa: EtapaId): boolean {
+export function etapaDisponible(rango: RangeId, etapa: EtapaId): boolean {
   return ETAPAS_POR_RANGO[rango].includes(etapa);
 }
 
@@ -154,7 +154,7 @@ export function avanzar(
   total: number,
   falladas: string[],
   acertadas: string[] = [],
-  rango: '3-5' | '6-8' = '3-5'
+  rango: RangeId = '3-5'
 ): { nuevo: EstadoMotor; subioEtapa: boolean } {
   const pesos = { ...estado.pesos };
   const ac = { ...estado.aciertos };
@@ -189,7 +189,10 @@ function foneticas(targets: string[]): Record<string, string> {
 // INTEGRACIÓN CON SECUENCIA DE LECCIONES
 // ============================================================
 
-import { SECUENCIA_LECCIONES, Leccion, ActividadLeccion } from './secuenciaLecciones';
+import { SECUENCIA_LECCIONES, obtenerTotalLecciones, Leccion, ActividadLeccion } from './secuenciaLecciones';
+import type { RangeId } from './curriculum';
+
+export { obtenerTotalLecciones };
 
 type EtapaLeccionMap = Record<EtapaId, string[]>;
 
@@ -200,14 +203,53 @@ const ETAPA_LECCION: EtapaLeccionMap = {
   oraciones: ['oraciones'],
 };
 
-export function obtenerLeccionesEtapa(rango: '3-5' | '6-8', etapa: EtapaId): Leccion[] {
-  const todas = SECUENCIA_LECCIONES[rango];
-  return todas.filter((l) => ETAPA_LECCION[l.etapa as EtapaId]?.includes(l.etapa));
+export function obtenerLeccionesEtapa(rango: RangeId, etapa: EtapaId): Leccion[] {
+  const etapasDeLaLeccion = ETAPA_LECCION[etapa] || [];
+  return SECUENCIA_LECCIONES[rango].filter((l) => etapasDeLaLeccion.includes(l.etapa));
 }
 
-export function obtenerLeccionPorOrden(rango: '3-5' | '6-8', etapa: EtapaId, orden: number): Leccion | null {
+export function obtenerLeccionPorOrden(rango: RangeId, etapa: EtapaId, orden: number): Leccion | null {
   const lecciones = obtenerLeccionesEtapa(rango, etapa);
   return lecciones.find((l) => l.orden === orden) || null;
+}
+
+// Traduce la etapa sugerida por la evaluación (p.ej. "silabas_directas") a la
+// etapa del motor, para empezar por donde el niño realmente está.
+function etapaDeEvaluacion(etapaSugerida?: string): EtapaId | null {
+  if (!etapaSugerida) return null;
+  for (const [etapa, subetapas] of Object.entries(ETAPA_LECCION)) {
+    if (subetapas.includes(etapaSugerida)) return etapa as EtapaId;
+  }
+  return null;
+}
+
+// Si el niño todavía no tiene lección asignada, se le asigna la primera lección
+// de su rango (o la de la etapa que recommendó la evaluación inicial).
+// Sin esto, el recorrido guiado de lecciones nunca arrancaba.
+export function asegurarLeccionInicial(
+  estado: EstadoMotor,
+  rango: RangeId,
+  evaluacion?: { etapaRecomendada?: string } | null
+): EstadoMotor {
+  if (estado.leccionId) return estado;
+
+  const rangoEtapas = ETAPAS_POR_RANGO[rango];
+  let etapa = estado.etapa;
+  const etapaEval = etapaDeEvaluacion(evaluacion?.etapaRecomendada);
+  if (etapaEval && rangoEtapas.includes(etapaEval)) etapa = etapaEval;
+
+  const lecciones = obtenerLeccionesEtapa(rango, etapa);
+  const primera = lecciones[0];
+  if (!primera) {
+    // Ese rango no tiene lecciones para la etapa: usa la primera disponible.
+    const cualquiera = SECUENCIA_LECCIONES[rango][0];
+    if (!cualquiera) return estado;
+    return { ...estado, leccionId: cualquiera.id, actividadIdx: 0 };
+  }
+  const n = estado.n ?? 0;
+  const orden = Math.min(n, Math.max(0, lecciones.length - 1));
+  const leccion = lecciones[orden] || primera;
+  return { ...estado, etapa, leccionId: leccion.id, actividadIdx: 0 };
 }
 
 export interface ActividadConLeccion {
@@ -217,7 +259,7 @@ export interface ActividadConLeccion {
   esUltimaActividad: boolean;
 }
 
-export function obtenerActividadActual(estado: EstadoMotor, rango: '3-5' | '6-8'): ActividadConLeccion | null {
+export function obtenerActividadActual(estado: EstadoMotor, rango: RangeId): ActividadConLeccion | null {
   const leccionId = estado.leccionId;
   const actividadIdx = estado.actividadIdx ?? 0;
 
@@ -238,26 +280,40 @@ export function obtenerActividadActual(estado: EstadoMotor, rango: '3-5' | '6-8'
   };
 }
 
-export function avanzarActividad(estado: EstadoMotor, rango: '3-5' | '6-8'): EstadoMotor {
+export function avanzarActividad(estado: EstadoMotor, rango: RangeId): EstadoMotor {
   const act = obtenerActividadActual(estado, rango);
   if (!act) return estado;
 
   if (act.esUltimaActividad) {
-    // Pasar a la siguiente lección
+    // Pasar a la siguiente lección de todo el currículo del rango
     const todas = SECUENCIA_LECCIONES[rango];
     const idxLeccion = todas.findIndex((l) => l.id === estado.leccionId);
     if (idxLeccion === -1 || idxLeccion >= todas.length - 1) {
-      return { ...estado, actividadIdx: act.actividadIndex }; // quedarse en la última
+      // Última lección del rango: reiniciar el ciclo desde la primera.
+      return { ...estado, leccionId: todas[0]?.id, actividadIdx: 0, n: 0 };
     }
     const siguienteLeccion = todas[idxLeccion + 1];
+    // Al cambiar de bloque de lecciones, la etapa del motor se sincroniza.
+    const nuevaEtapa = etapaDeLeccion(rango, siguienteLeccion.etapa) ?? estado.etapa;
     return {
       ...estado,
+      etapa: nuevaEtapa,
       leccionId: siguienteLeccion.id,
       actividadIdx: 0,
     };
   }
 
   return { ...estado, actividadIdx: act.actividadIndex + 1 };
+}
+
+// Etapa del motor a la que pertenece una lección concreta.
+export function etapaDeLeccion(rango: RangeId, etapaLeccion: string): EtapaId | null {
+  for (const [etapa, subetapas] of Object.entries(ETAPA_LECCION)) {
+    if (subetapas.includes(etapaLeccion)) {
+      return ETAPAS_POR_RANGO[rango].includes(etapa as EtapaId) ? (etapa as EtapaId) : null;
+    }
+  }
+  return null;
 }
 
 export function retrocerActividad(estado: EstadoMotor): EstadoMotor {

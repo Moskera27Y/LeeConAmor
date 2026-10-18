@@ -26,8 +26,15 @@ create table if not exists progreso (
   pesos jsonb default '{}'::jsonb,
   aciertos jsonb default '{}'::jsonb,
   score integer default 0,
+  leccion_id text,
+  actividad_idx integer,
   updated_at timestamptz default now()
 );
+
+-- Lección activa y actividad (para retomar el recorrido guiado en otro dispositivo).
+-- Es idempotente: se puede volver a pegar este schema sin romper nada.
+alter table progreso add column if not exists leccion_id text;
+alter table progreso add column if not exists actividad_idx integer;
 
 create table if not exists sesiones (
   id uuid primary key default gen_random_uuid(),

@@ -44,14 +44,12 @@ export default function FormarSílabaTrabada({
   }, []);
 
   const agregarLetra = (letra: string) => {
-    if (resultado || !actual) return;
+    if (resultado === 'correcto' || !actual) return;
     const siguiente = formada + letra;
     if (!actual.silaba.startsWith(siguiente)) {
       setResultado('incorrecto');
       speak(`Casi. La sílaba es ${actual.silaba}. Intenta otra vez.`);
       onError();
-      setFormada('');
-      setLetrasUsadas([]);
       return;
     }
     setFormada(siguiente);
@@ -65,11 +63,13 @@ export default function FormarSílabaTrabada({
   };
 
   const borrar = () => {
-    if (resultado || letrasUsadas.length === 0) return;
-    const ultima = letrasUsadas.pop();
+    if (resultado === 'correcto' || letrasUsadas.length === 0) return;
+    const nuevas = [...letrasUsadas];
+    const ultima = nuevas.pop();
     if (ultima) {
-      setLetrasUsadas(letrasUsadas);
+      setLetrasUsadas(nuevas);
       setFormada(formada.slice(0, -ultima.length));
+      setResultado(null);
     }
   };
 
@@ -77,6 +77,10 @@ export default function FormarSílabaTrabada({
     setFormada('');
     setLetrasUsadas([]);
     setResultado(null);
+  };
+
+  const siguiente = () => {
+    iniciar();
   };
 
   return (
@@ -101,22 +105,22 @@ export default function FormarSílabaTrabada({
             {formada || '—'}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-            {[...new Set(actual.letras)].map((l) => (
+            {(actual.letras as string[]).map((l) => (
               <button
                 key={l}
                 onClick={() => agregarLetra(l)}
-                disabled={resultado || formada.length >= actual.silaba.length || isSpeaking}
-                className="letter-btn"
+                disabled={resultado === 'correcto' || formada.length >= actual.silaba.length || isSpeaking}
+                className={`letter-btn ${formada.endsWith(l) && !resultado ? 'selected' : ''}`}
                 style={{ width: '72px', height: '72px', fontSize: '2rem' }}
               >
                 {l}
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={borrar}
-              disabled={letrasUsadas.length === 0 || resultado || isSpeaking}
+              disabled={letrasUsadas.length === 0 || resultado === 'correcto' || isSpeaking}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >
@@ -124,12 +128,17 @@ export default function FormarSílabaTrabada({
             </button>
             <button
               onClick={reiniciar}
-              disabled={resultado || isSpeaking}
+              disabled={isSpeaking}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >
-              🔄 Reiniciar
+              {resultado === 'incorrecto' ? '🔄 Reintentar' : '🔄 Reiniciar'}
             </button>
+            {resultado === 'correcto' && (
+              <button onClick={siguiente} className="next-btn" style={{ minHeight: '48px', fontSize: '0.9rem' }}>
+                ➡️ Otra sílaba
+              </button>
+            )}
           </div>
         </>
       )}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type MouseEvent, type TouchEvent } from 'react';
 
 interface LetraTrazo {
   letra: string;
@@ -40,7 +40,7 @@ export default function TrazoLetra({
     setCompletado(false);
   }, []);
 
-  const manejarInicio = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+  const manejarInicio = useCallback((e: TouchEvent | MouseEvent) => {
     if (!actual || completado) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -48,7 +48,7 @@ export default function TrazoLetra({
     setPuntos([{ x: clientX - rect.left, y: clientY - rect.top }]);
   }, [actual, completado]);
 
-  const manejarMover = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+  const manejarMover = useCallback((e: TouchEvent | MouseEvent) => {
     if (!actual || completado || puntos.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;

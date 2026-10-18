@@ -148,7 +148,7 @@ export default function ZonaPadres(p: Props) {
                 </div>
               </div>
             )}
-            {!letrasDificiles.length > 0 && (
+            {letrasDificiles.length === 0 && (
               <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem' }}>¡Sin dificultades detectadas! Sigue así.</p>
             )}
             {p.graduado && (

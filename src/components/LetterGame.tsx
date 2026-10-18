@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Level } from '../data/curriculum';
 import BotMessage from './BotMessage';
-import { ABECEDARIO, VOCALES } from '../data/motorNiveles';
+import { ABECEDARIO } from '../data/motorNiveles';
+import { F_ERROR_CASI, F_FELICIDADES_FIN, F_NIVEL_OK } from '../data/frases';
 
 declare global {
   interface Window {
@@ -13,7 +14,6 @@ interface Props {
   levels: Level[];
   nombre: string;
   speak: (t: string) => void;
-  hablarSecuencia: (t: string[]) => Promise<boolean>;
   isSpeaking: boolean;
   score: number;
   setScore: (fn: (s: number) => number) => void;
@@ -37,7 +37,7 @@ async function boomConfetti(colores?: string[]) {
   } catch { /* noop */ }
 }
 
-export default function LetterGame({ levels = [], nombre = '', speak = () => {}, hablarSecuencia = async () => false, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel }: Props) {
+export default function LetterGame({ levels = [], nombre = '', speak = () => {}, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel }: Props & { key?: string }) {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [letters, setLetters] = useState<string[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
@@ -49,11 +49,27 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
   const [reportado, setReportado] = useState<number[]>([]);
 
-  const config: Level = levels.find((l) => l.id === currentLevel) || levels[0] || { targetLetters: [], instruction: '', reward: '', phonetics: {} };
+const NIVEL_VACIO: Level = {
+  id: 0,
+  rango: '3-5',
+  tipo: 'vocal',
+  titulo: 'Letras',
+  descripcion: 'Reconocer la letra que escuchas',
+  targetLetters: [],
+  distractores: [],
+  instruction: 'Escucha a Léo y toca la letra correcta',
+  reward: '¡Muy bien!',
+  phonetics: {},
+  wordsToHighlight: [],
+  emoji: '🦉',
+  palabrasEjemplo: [],
+};
 
-  const generateLetters = useCallback(() => {
-    const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
-    let distractores = Array.isArray(config.distractores) ? config.distractores : [];
+const config: Level = levels.find((l) => l.id === currentLevel) || levels[0] || NIVEL_VACIO;
+
+const generateLetters = useCallback(() => {
+  const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
+  let distractores = Array.isArray(config.distractores) ? config.distractores : [];
 
     // Si no hay distractores definidos, generarlos automáticamente del abecedario
     if (distractores.length === 0) {
@@ -95,8 +111,8 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
       onResultado({
         aciertos: selectedLetters.length,
         total: selectedLetters.length + wrongLetters.length,
-        falladas: [...new Set(wrongLetters)],
-        acertadas: [...new Set(selectedLetters)],
+        falladas: [...new Set<string>(wrongLetters)],
+        acertadas: [...new Set<string>(selectedLetters)],
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,7 +129,8 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
       const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
       setScore((s) => s + 10);
       const word = next.join('');
-      if (config.wordsToHighlight.some((w) => w.startsWith(word)) && word.length >= 2) {
+      const words = config.wordsToHighlight || [];
+      if (words.some((w) => w.startsWith(word)) && word.length >= 2) {
         setFoundWords((p) => (p.includes(word) ? p : [...p, word]));
         setBotTipo('bien');
         setBotTexto(`${praise} ${nombre}, formaste ${word}.`);
@@ -121,7 +138,7 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
         setScore((s) => s + 5);
         boomConfetti();
       } else {
-        const fon = config.phonetics[letter] || letter;
+        const fon = config.phonetics?.[letter] || letter;
         setBotTipo('bien');
         setBotTexto(`${praise} ${nombre}, esa es la ${letter}, suena ${fon}.`);
         speak(praise);
@@ -138,7 +155,7 @@ export default function LetterGame({ levels = [], nombre = '', speak = () => {},
       setAttempts((a) => a + 1);
       setScore((s) => Math.max(0, s - 5));
       setBotTipo('mal');
-      setBotTexto(`¡Casi, ${nombre}! Esa es la ${letter}. Aquí buscamos: ${config.targetLetters.join(', ')}. ${config.phonetics[config.targetLetters[0]] || ''} Prueba otra vez con amor ❤️`);
+      setBotTexto(`¡Casi, ${nombre}! Esa es la ${letter}. Aquí buscamos: ${config.targetLetters.join(', ')}. ${config.phonetics?.[config.targetLetters[0]] || ''} Prueba otra vez con amor ❤️`);
       speak(F_ERROR_CASI);
       boomConfetti(['#ff6b6b', '#ffc107', '#ff9f40']);
       setTimeout(() => {

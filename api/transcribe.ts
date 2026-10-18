@@ -7,7 +7,10 @@
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
 
-export const config = { api: { bodyParser: false } };
+export const config = {
+  api: { bodyParser: false },
+  maxDuration: 60,
+};
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -24,6 +27,7 @@ function parseMultipart(req: any): Promise<{ audioPath: string; mime: string }> 
 }
 
 async function transcribeWhisperApi(audioPath: string, mime: string): Promise<string> {
+  const t0 = Date.now();
   const apiKey = process.env.WHISPER_API_KEY;
   if (!apiKey) throw Object.assign(new Error('Falta WHISPER_API_KEY'), { status: 501 });
   const buf = await fs.promises.readFile(audioPath);
@@ -40,8 +44,10 @@ async function transcribeWhisperApi(audioPath: string, mime: string): Promise<st
     throw Object.assign(new Error('Cuota agotada del tier free'), { status: 502 });
   if (!start.ok) throw Object.assign(new Error('Error al encolar'), { status: 500 });
   const { task_id } = (await start.json()) as { task_id: string };
-  for (let i = 0; i < 20; i++) {
+  // 20 vueltas * 1.5s = 30s, pero con red lenta conviene un tope de ~50s (limite Vercel 60s)
+  for (let i = 0; i < 22; i++) {
     await sleep(1500);
+    if (Date.now() - t0 > 50000) break;
     const st = await fetch(`https://api.whisper-api.com/status/${task_id}`, {
       headers: { 'X-API-Key': apiKey },
     });

@@ -26,10 +26,7 @@ export default function Storytime({
     speak(palabras[audioIdx]);
     // Esperar un poco antes de la siguiente palabra
     setTimeout(() => {
-      setAudioIdx((i) => i + 1);
-      if (i + 1 < palabras.length) {
-        leerSiguiente();
-      }
+      setAudioIdx((siguiente) => siguiente + 1);
     }, 600);
   }, [palabras, audioIdx, speak, onTerminado]);
 

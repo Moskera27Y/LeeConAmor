@@ -36,7 +36,7 @@ export default function MenuPeques({
             <h2>🔒 Zona de padres</h2>
             <button className="btn-cerrar-modal" onClick={onClose}>✕</button>
           </div>
-          <p style={{ textAlign: 'center', margin: '0 0 1.5rem', color: 'rgba(255,255,255,0.9)' }}>
+          <p style={{ textAlign: 'center', margin: '0 0 1.5rem', color: '#333' }}>
             Solo adultos: ¿cuánto es <strong>{a} + {b}</strong>?
           </p>
           <input

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useReadingLesson } from '../hooks/useReadingLesson';
-import { F_BIEN_LECTURA, F_BUEN_ESFUERZO, F_BUEN_INTENTO, F_ESCUCHA_LEE, F_NO_ESCUCHE, comboLectura, felicitarNombre } from '../data/frases';
+import { F_BIEN_LECTURA, F_BUEN_ESFUERZO, F_BUEN_INTENTO, F_ESCUCHA_LEE, F_NO_ESCUCHE, animarNombre, comboLectura, corregirNombre, ejemploGuia, felicitarNombre } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -15,7 +15,7 @@ interface Props {
   onSiguiente: () => void;
 }
 
-export default function ReadingCard({ objetivo = '', imagen = '', pista = '', nombre = '', speak = () => {}, hablarSecuencia = async () => false, detener = () => {}, isSpeaking = false, onBien = () => {}, onSiguiente }: Props) {
+export default function ReadingCard({ objetivo = '', imagen = '', pista = '', nombre = '', speak = () => {}, hablarSecuencia = async () => false, detener = () => {}, isSpeaking = false, onBien = () => {}, onSiguiente = () => {} }: Props & { key?: string }) {
   const { grabando, evaluando, oido, intentos, volumen, grabarYEvaluar, reset } = useReadingLesson(objetivo);
   const [lejos, setLejos] = useState(false);
   const [ocupado, setOcupado] = useState(false);

@@ -1,4 +1,4 @@
-import { openRouterChat } from '../lib/openrouter';
+import { consultarRecomendacionIA } from '../lib/openrouter';
 
 export type RangoId = '3-5' | '6-8';
 
@@ -90,14 +90,14 @@ export async function recomendarNivelConIA(respuestas: Record<string, string>, r
     const resumen = respuestas
       ? Object.entries(respuestas).map(([k, v]) => `- ${k}: ${v}`).join('\n')
       : '(sin respuestas)';
-    const prompt = `Eres una maestra de educación inicial en español. Un niño/a llamado ${nombre} (rango ${rango}) respondió esta evaluación inicial de lectura:\n${resumen}\n\nResultado local: puntaje ${local.puntaje}/${local.total}, etapa sugerida: ${local.etapaRecomendada}, nivel: ${local.nivelRecomendado}.\n\nResponde SOLO con un JSON válido con estos campos: nivelRecomendado (numero), etapaRecomendada (texto), observaciones (array de frases cortas en español). No añadas texto extra.`;
-    const iaResp = await openRouterChat([{ role: 'user', content: prompt }]);
-    const ia = JSON.parse(iaResp);
+    const resumenLocal = `Resultado local: puntaje ${local.puntaje}/${local.total}, etapa sugerida: ${local.etapaRecomendada}, nivel: ${local.nivelRecomendado}.`;
+    const ia = await consultarRecomendacionIA(respuestas, rango, nombre, `${resumen}\n${resumenLocal}`);
+    if (!ia) return local;
     return {
       ...local,
       nivelRecomendado: typeof ia.nivelRecomendado === 'number' ? ia.nivelRecomendado : local.nivelRecomendado,
-      etapaRecomendada: typeof ia.etapaRecomendada === 'string' ? ia.etapaRecomendada : local.etapaRecomendada,
-      observaciones: Array.isArray(ia.observaciones) ? ia.observaciones : local.observaciones,
+      etapaRecomendada: typeof ia.etapaRecomendada === 'string' && ia.etapaRecomendada ? ia.etapaRecomendada : local.etapaRecomendada,
+      observaciones: Array.isArray(ia.observaciones) && ia.observaciones.length > 0 ? ia.observaciones : local.observaciones,
     };
   } catch {
     return local;
