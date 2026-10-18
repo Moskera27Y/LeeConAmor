@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { PREGUNTAS_EVAL, RangoId, recomendarNivelConIA } from '../hooks/useEvaluacionInicial';
 import { type ChildProfile } from '../data/curriculum';
 
@@ -62,7 +62,7 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
     return (
       <div className="app sky" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem' }}>
         <div style={{ fontSize: '3rem' }}>🦉</div>
-        <p style={{ color: 'white', fontSize: '1.2rem', marginTop: '1rem' }}>Léo está evaluando…</p>
+        <p style={{ color: '#5b3a80', fontSize: '1.2rem', marginTop: '1rem' }}>Léo está evaluando…</p>
       </div>
     );
   }
@@ -71,8 +71,8 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
     return (
       <div className="app sky" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem', textAlign: 'center' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
-        <h2 style={{ color: 'white', margin: '0.5rem 0' }}>¡Evaluación terminada, {nombre}!</h2>
-        <p style={{ color: 'rgba(255,255,255,0.95)', maxWidth: '420px', margin: '0 auto 1rem', fontWeight: '700' }}>
+        <h2 style={{ color: '#5b3a80', margin: '0.5rem 0' }}>¡Evaluación terminada, {nombre}!</h2>
+        <p style={{ color: '#6b6880', maxWidth: '420px', margin: '0 auto 1rem', fontWeight: '700' }}>
           Nivel recomendado: <strong>{resultado.nivelRecomendado}</strong> · Etapa: <strong>{resultado.etapaRecomendada}</strong>
         </p>
         {resultado.observaciones && resultado.observaciones.length > 0 && (
@@ -98,8 +98,8 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
     <div className="app sky" style={{ minHeight: '100vh', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
       <header className="app-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🦉</div>
-        <h1 style={{ color: 'white', margin: '0' }}>Evaluación de {nombre}</h1>
-        <p style={{ color: 'rgba(255,255,255,0.9)', margin: '0.25rem 0 0' }}>{rango === '3-5' ? '3 a 5 · Pre-lector' : '6 a 8 · Silábico'}</p>
+        <h1 style={{ color: '#5b3a80', margin: '0' }}>Evaluación de {nombre}</h1>
+        <p style={{ color: '#6b6880', margin: '0.25rem 0 0' }}>{rango === '3-5' ? '3 a 5 · Pre-lector' : '6 a 8 · Silábico'}</p>
       </header>
 
       <div className="progress-tracker progress-grande" style={{ maxWidth: '500px', margin: '0 auto 1.5rem' }}>

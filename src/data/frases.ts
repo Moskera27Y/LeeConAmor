@@ -20,22 +20,33 @@ export function comboLectura(objetivo: string, pista: string): string {
   return `${objetivo}. ${pista}. Repite conmigo.`;
 }
 
-// Saludo con nombre: se genera UNA vez por niño y queda guardado para siempre.
+// Saludo con el nombre: si el audio del niño ya esta pregenerado se usa,
+// si no, el saludo generico (tambien pregenerado con la voz clonada).
 export function saludoNombre(nombre: string): string {
-  return `¡Hola, ${nombre}! Vamos a leer juntitos.`;
+  return conNombre(`¡Hola, ${nombre}! Vamos a leer juntitos.`, '¡Hola! Vamos a leer juntitos.');
 }
 
-// Feedback con nombre (se genera vía TTS con el clon de Léo)
-export function felicitarNombre(nombre: string, objetivo: string): string {
-  return `¡Muy bien, ${nombre}! Dijiste ${objetivo} clarito. 🌟`;
+// Feedback con el nombre del niño.
+// Solo varies en el NOMBRE (no en la palabra ni la pista) para que el audio
+// se pueda pregenerar con la voz clonada una vez por nombre.
+// Si ese audio no existe todavita, se usa la version sin nombre: tambien
+// esta pregenerada, asi que siempre se oye la voz de Leo.
+import { AUDIO_FIJO } from './audioFijo';
+
+function conNombre(texto: string, respaldo: string): string {
+  return AUDIO_FIJO[texto] ? texto : respaldo;
 }
 
-export function corregirNombre(nombre: string, pista: string): string {
-  return `Casi, ${nombre}, vamos juntitos, despacio: ${pista}.`;
+export function felicitarNombre(nombre: string, _objetivo?: string): string {
+  return conNombre(`¡Muy bien, ${nombre}! ¡Qué bien leíste! 🌟`, F_BIEN_LECTURA);
+}
+
+export function corregirNombre(nombre: string, _pista?: string): string {
+  return conNombre(`¡Casi, ${nombre}! Vamos juntitos, despacio.`, '¡Buen esfuerzo! Vamos juntitos despacio.');
 }
 
 export function animarNombre(nombre: string): string {
-  return `Tú puedes, ${nombre}. Escucha otra vez e inténtalo.`;
+  return conNombre(`Tú puedes, ${nombre}. Escucha otra vez e inténtalo.`, F_BUEN_INTENTO);
 }
 
 // Ejemplo de guía para lectura (para hablarSecuencia)

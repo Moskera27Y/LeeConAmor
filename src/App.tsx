@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import EvaluacionInicial from './components/EvaluacionInicial';
@@ -62,6 +62,8 @@ function App() {
   const [readingIndex, setReadingIndex] = useState(0);
   const [motor, setMotor] = useState<EstadoMotor>({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
   const [actividadActual, setActividadActual] = useState<any>(null);
+  // No se puede pasar de actividad hasta ganar la actual.
+  const [actividadGanada, setActividadGanada] = useState(false);
   const [estadoAdaptabilidad, setEstadoAdaptabilidad] = useState<any>(null);
   const [estadoGamificacion, setEstadoGamificacion] = useState<any>(null);
   const [graduado, setGraduado] = useState(false);
@@ -82,21 +84,29 @@ function App() {
     setActividadActual(obtenerActividadActual(nuevo, profile.rango));
   };
 
-  const avanzarALuego = () => {
-    if (!profile) return;
+  // Pasar a la siguiente actividad SOLO si la actual ya se gano.
+  // Devuelve false si sigue bloqueada (para que la UI muestre el aviso).
+  const avanzarALuego = (forzado = false): boolean => {
+    if (!profile) return false;
+    if (!forzado && !actividadGanada) return false;
     const base = actividadActual ? motor : asegurarLeccionInicial(motor, profile.rango, profile.evaluacionInicial);
+    const eraUltima = !!actividadActual?.esUltimaActividad;
+    const leccionActual = actividadActual?.leccion.id;
     const nuevo = avanzarActividad(base, profile.rango);
     aplicarMotor(nuevo);
+    setActividadGanada(false);
     const act = obtenerActividadActual(nuevo, profile.rango);
     // Aviso + celebración al cambiar de lección
-    if (act && (!actividadActual || act.leccion.id !== actividadActual.leccion.id)) {
-      speak(act.leccion.audioIntro || act.leccion.titulo);
+    if (act && eraUltima && act.leccion.id !== leccionActual) {
+      speak(act.leccion.audioCelebracion || F_ETAPA_SUPERADA);
       try {
         if (esNavegador()) {
-          window.confetti?.({ particleCount: 90, spread: 110, origin: { y: 0.6 } });
+          window.confetti?.({ particleCount: 100, spread: 120, origin: { y: 0.55 } });
         }
       } catch { /* noop */ }
+      setTimeout(() => speak(act.leccion.audioIntro || act.leccion.titulo), 900);
     }
+    return true;
   };
 
   const manejarCorrecto = (actividadId: string) => {
@@ -108,18 +118,18 @@ function App() {
     const g = actualizarGamificacion(estadoGamificacion, {
       aciertos: 1,
       rachaDias: ad.rachaDias,
-      nivelAlcanzado: ad.rachaAciertos,
+      nivelAlcanzado: motor.n + 1,
     });
     setEstadoGamificacion(g.siguiente);
     if (g.nuevasInsignias.length > 0) {
       speak(`¡Insignia nueva: ${g.nuevasInsignias[0].nombre}! ${g.nuevasInsignias[0].descripcion}`);
       try {
-        if (esNavegador()) window.confetti?.({ particleCount: 120, spread: 140, origin: { y: 0.5 } });
+        if (esNavegador()) window.confetti?.({ particleCount: 130, spread: 150, origin: { y: 0.5 } });
       } catch { /* noop */ }
     }
-    // Avanza siempre: la adaptabilidad ya refuerza quedándose en la misma actividad
-    // cuando el niño comete errores seguidos (ver obtenerRecomendacionAdaptativa).
-    avanzarALuego();
+    // Actividad ganada: se habilita "Siguiente". El niño avanza cuando pulsa,
+    // para que vea con calma lo que acaba de lograr.
+    setActividadGanada(true);
   };
 
   const manejarError = (actividadId: string) => {
@@ -128,6 +138,8 @@ function App() {
     setEstadoAdaptabilidad(ad);
     const g = actualizarGamificacion(estadoGamificacion, { errores: 1, rachaDias: ad.rachaDias });
     setEstadoGamificacion(g.siguiente);
+    // Si falla, la actividad sigue pendiente: "Siguiente" permanece bloqueado.
+    setActividadGanada(false);
   };
 
   const refrescar = () => {
@@ -276,7 +288,7 @@ const motivoTexto =
         <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
         <main className="app-main" style={{ textAlign: 'center', paddingTop: '20vh' }}>
           <div style={{ fontSize: '4rem' }}>🦉</div>
-          <p style={{ color: 'white', fontSize: '1.3rem' }}>Léo está despertando…</p>
+          <p style={{ color: '#5b3a80', fontSize: '1.3rem' }}>Léo está despertando…</p>
         </main>
       </div>
     );
@@ -292,7 +304,7 @@ const motivoTexto =
         <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
         <main className="app-main" style={{ textAlign: 'center', paddingTop: '15vh' }}>
           <div style={{ fontSize: '4rem' }}>🔧</div>
-          <p style={{ color: 'white', fontSize: '1.2rem' }}>La nube no está configurada.<br />Pide al administrador que active el acceso.</p>
+          <p style={{ color: '#5b3a80', fontSize: '1.2rem' }}>La nube no está configurada.<br />Pide al administrador que active el acceso.</p>
         </main>
       </div>
     );
@@ -526,7 +538,7 @@ const motivoTexto =
                   setScore((s) => s + p);
                   manejarCorrecto(actividadActual.actividad.objetivo);
                 }}
-                onSiguiente={avanzarALuego}
+                onSiguiente={() => avanzarALuego(true)}
               />
             )}
             {actividadActual.actividad.tipo === 'storytime' && (
@@ -546,17 +558,27 @@ const motivoTexto =
                 className="retry-btn"
                 onClick={() => {
                   const nuevo = retrocerActividad(motor);
-                  if (nuevo !== motor) aplicarMotor(nuevo);
+                  if (nuevo !== motor) {
+                    aplicarMotor(nuevo);
+                    setActividadGanada(false);
+                  }
                 }}
                 disabled={!motor.actividadIdx}
               >
                 ⏪ Anterior
               </button>
-              <button className="next-btn" onClick={avanzarALuego}>
-                {actividadActual.esUltimaActividad ? '¡Siguiente lección! →' : 'Siguiente →'}
+              <button className="next-btn" onClick={() => avanzarALuego()} disabled={!actividadGanada}>
+                {actividadGanada
+                  ? (actividadActual.esUltimaActividad ? '🎉 ¡Siguiente lección!' : 'Siguiente →')
+                  : '🔒 Acierta para continuar'}
               </button>
             </div>
-            <p style={{ textAlign: 'center', color: '#fff', opacity: 0.8, fontSize: '0.82rem', marginTop: '0.8rem' }}>
+            {!actividadGanada && (
+              <p style={{ textAlign: 'center', color: '#6b6880', fontSize: '0.85rem', marginTop: '0.6rem', fontWeight: '700' }}>
+                Repite la actividad hasta acertar. Así no se salta nada.
+              </p>
+            )}
+            <p style={{ textAlign: 'center', color: '#6b6880', fontSize: '0.82rem', marginTop: '0.8rem' }}>
               {actividadActual.leccion.descripcion}
             </p>
           </div>

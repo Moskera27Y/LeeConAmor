@@ -44,7 +44,7 @@ export default function Storytime({
   }, [empezar, terminado, audioIdx, palabras.length]);
 
   return (
-    <div className="storytime" style={{ textAlign: 'center', padding: '1rem', background: 'rgba(255,255,255,0.2)', borderRadius: '22px', margin: '1rem 0' }}>
+    <div className="storytime" style={{ textAlign: 'center', margin: '1rem 0' }}>
       <p style={{ fontSize: '1.2rem', fontWeight: '800', color: '#764ba2', marginBottom: '1rem' }}>
         📖 Storytime con Léo
       </p>

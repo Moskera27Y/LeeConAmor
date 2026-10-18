@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import VoicePicker from './VoicePicker';
 import MapaDominio from './MapaDominio';
 import type { EstadoMotor } from '../data/motorNiveles';
@@ -116,7 +116,7 @@ export default function ZonaPadres(p: Props) {
         {vista === 'resumen' && (
           <div className="padres-resumen">
             <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Progreso de {p.nombre}</h3>
-            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+            <div style={{ background: '#f7f4fd', borderRadius: '14px', padding: '1rem', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span>Etapa actual:</span>
                 <strong>{p.motor.etapa}</strong>
@@ -149,7 +149,7 @@ export default function ZonaPadres(p: Props) {
               </div>
             )}
             {letrasDificiles.length === 0 && (
-              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem' }}>¡Sin dificultades detectadas! Sigue así.</p>
+              <p style={{ color: '#6b6880', fontSize: '0.9rem' }}>¡Sin dificultades detectadas! Sigue así.</p>
             )}
             {p.graduado && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#28a745' }}>
@@ -162,14 +162,14 @@ export default function ZonaPadres(p: Props) {
         {vista === 'consejos' && (
           <div className="padres-consejos">
             <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Consejos para practicar en casa</h3>
-            <ul style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
+            <ul style={{ color: '#4a4757', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
               {consejos.map((c, i) => (
                 <li key={i} style={{ marginBottom: '0.6rem' }}>
                   {c}
                 </li>
               ))}
             </ul>
-            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: '1rem' }}>
+            <p style={{ color: '#6b6880', fontSize: '0.85rem', marginTop: '1rem' }}>
               💡 Sesiones cortas de 15-30 minutos funcionan mejor que una larga.
             </p>
           </div>
@@ -178,7 +178,7 @@ export default function ZonaPadres(p: Props) {
         {vista === 'offline' && (
           <div className="padres-offline">
             <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Actividades para imprimir y hacer en papel</h3>
-            <ul style={{ color: 'rgba(255,255,255,0.9)', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
+            <ul style={{ color: '#4a4757', lineHeight: '1.8', paddingLeft: '1.2rem' }}>
               <li style={{ marginBottom: '0.6rem' }}>🔤 Tarjetas de letras: recorta letras de revistas y pégalas en una hoja.</li>
               <li style={{ marginBottom: '0.6rem' }}>🧱 Sílabas con plastilina: moldea las letras de cada sílaba.</li>
               <li style={{ marginBottom: '0.6rem' }}>📖 Búsqueda de letras: busca una letra específica en un periódico y circúlala.</li>
