@@ -8,17 +8,13 @@ export const F_BIEN_LECTURA = '¡Qué lindo leíste! 🌟';
 export const F_NO_ESCUCHE = 'No te oí bien. Probemos otra vez con amor.';
 export const F_BUEN_ESFUERZO = '¡Buen esfuerzo! Vamos juntitos despacio.';
 export const F_BUEN_INTENTO = '¡Buen intento! Una vez más.';
+export const F_BUEN_INTENTO_EXAMEN = 'Buen intento. Sigue practicando y lo intentamos de nuevo.';
 export const F_FELICIDADES_FIN = '¡Felicidades! Terminaste todo. Ahora lees por tu cuenta. 🎉';
 export const F_NIVEL_OK = '¡Nivel completado!';
 export const F_ETAPA_SUPERADA = '¡Increíble! Subiste de etapa. Vamos por más. 🎉';
 export const F_GRADUACION = '¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector. 🎓';
 
 export const REINTENTOS_LECTURA = [F_BUEN_INTENTO, F_BUEN_ESFUERZO, F_NO_ESCUCHE];
-
-// Combo exacto hablado en Solo lectura: `${objetivo}. ${pista}. Repite conmigo.`
-export function comboLectura(objetivo: string, pista: string): string {
-  return `${objetivo}. ${pista}. Repite conmigo.`;
-}
 
 // Saludo con el nombre: si el audio del niño ya esta pregenerado se usa,
 // si no, el saludo generico (tambien pregenerado con la voz clonada).
@@ -32,9 +28,10 @@ export function saludoNombre(nombre: string): string {
 // Si ese audio no existe todavita, se usa la version sin nombre: tambien
 // esta pregenerada, asi que siempre se oye la voz de Leo.
 import { AUDIO_FIJO } from './audioFijo';
+import { textoHablado } from './textoVoz';
 
 function conNombre(texto: string, respaldo: string): string {
-  return AUDIO_FIJO[texto] ? texto : respaldo;
+  return AUDIO_FIJO[textoHablado(texto)] ? texto : respaldo;
 }
 
 export function felicitarNombre(nombre: string, _objetivo?: string): string {
@@ -47,11 +44,6 @@ export function corregirNombre(nombre: string, _pista?: string): string {
 
 export function animarNombre(nombre: string): string {
   return conNombre(`Tú puedes, ${nombre}. Escucha otra vez e inténtalo.`, F_BUEN_INTENTO);
-}
-
-// Ejemplo de guía para lectura (para hablarSecuencia)
-export function ejemploGuia(objetivo: string, pista: string): string[] {
-  return ['Escucha con atención.', `${objetivo}. ${pista}.`, 'Ahora tú. Léelo en voz alta.'];
 }
 
 // Saludo con nombre: se genera UNA vez por niño y queda guardado para siempre.
@@ -76,19 +68,9 @@ export async function asegurarVozNombre(nombre: string): Promise<void> {
 
 // Frases que necesitan audio pregrabado (sin variables)
 export const FRASES_FIJAS = [
-  'Hola, soy Léo. Vamos a leer juntitos.',
-  'Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.',
-  'Vamos a escuchar sonidos: mmm como mamá y sss como serpiente. Toca la letra del sonido.',
-  'Juntamos sonidos: mmm con aaa forman MA. Busca M y A para formar MA.',
-  'Junta las letras para formar MA, PA y LA. Escucha: mmm-aaa dice MA.',
-  'Forma palabras que puedes leer: MAMA, PAPA y PERA. Escucha despacio: pe-eee-ra.',
-  'Lee la oración completita y luego dime qué entendiste. Escucha primero a Léo.',
-  '¡Escuchaste muy bien las vocales!',
-  '¡Qué oído tan lindo!',
   '¡Formaste tu primera sílaba!',
   '¡Armaste sílabas muy bien!',
   '¡Leíste palabras de verdad!',
-  '¡Lees oraciones enteras!',
   '¡Muy bien!',
   '¡Genial!',
   '¡Súper!',
@@ -99,16 +81,9 @@ export const FRASES_FIJAS = [
   'No te oí bien. Probemos otra vez con amor.',
   '¡Buen esfuerzo! Vamos juntitos despacio.',
   '¡Buen intento! Una vez más.',
+  'Buen intento. Sigue practicando y lo intentamos de nuevo.',
   '¡Felicidades! Terminaste todo. Ahora lees por tu cuenta. 🎉',
   '¡Nivel completado!',
   '¡Increíble! Subiste de etapa. Vamos por más. 🎉',
   '¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector. 🎓',
-  'A. aaa como manzana. Repite conmigo.',
-  'E. eee como elefante. Repite conmigo.',
-  'O. ooo como oso. Repite conmigo.',
-  'MA. mmm con aaa, MA. Repite conmigo.',
-  'MAMA. ma-ma, despacio ma-ma. Repite conmigo.',
-  'PAPA. pa-pa, despacio pa-pa. Repite conmigo.',
-  'PERA. pe-ra, despacio pe-ra. Repite conmigo.',
-  'SOL. sol, sss-ooo-lll. Repite conmigo.',
 ];

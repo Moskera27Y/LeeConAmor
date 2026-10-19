@@ -1062,3 +1062,13 @@ button { font-family: inherit; }
     animation-duration: .01ms !important;
   }
 }
+/* Trazo: círculo verde de inicio que late suavecito */
+@keyframes trazo-latido {
+  0%, 100% { transform: scale(1); opacity: .35; }
+  50% { transform: scale(1.35); opacity: .15; }
+}
+.trazo-inicio-pulso {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: trazo-latido 1.3s ease-in-out infinite;
+}

@@ -38,25 +38,34 @@ export default function MemoriaAuditiva({
   const [reproduciendo, setReproduciendo] = useState(false);
   const [nivel, setNivel] = useState(1);
 
-  const iniciarSecuencia = useCallback(async () => {
+  const textoDe = useCallback((id: string) => SONIDOS.find((s) => s.id === id)?.texto || id, []);
+
+  const reproducir = useCallback(async (ids: string[], instruccion: boolean) => {
+    setReproduciendo(true);
+    const textos = ids.map((id) => textoDe(id));
+    const frases: string[] = instruccion ? [FRASES_VOZ.memoria, ...textos] : textos;
+    await hablarSecuencia(frases);
+    setReproduciendo(false);
+  }, [hablarSecuencia, textoDe]);
+
+  const iniciarSecuencia = useCallback(async (nivelActual: number) => {
     setResultado(null);
     setTurnoUsuario(0);
-    setReproduciendo(true);
-
     const nuevaSecuencia: string[] = [];
-    for (let i = 0; i < nivel; i++) {
+    for (let i = 0; i < nivelActual; i++) {
       const sonido = SONIDOS[Math.floor(Math.random() * SONIDOS.length)];
       nuevaSecuencia.push(sonido.id);
     }
     setSecuencia(nuevaSecuencia);
+    // Habla la instrucción y luego la secuencia completa, sin cortarse.
+    await reproducir(nuevaSecuencia, true);
+  }, [reproducir]);
 
-    for (const id of nuevaSecuencia) {
-      const sonido = SONIDOS.find((s) => s.id === id)!;
-      speak(sonido.texto);
-      await new Promise((r) => setTimeout(r, 1200));
-    }
-    setReproduciendo(false);
-  }, [nivel, speak, hablarSecuencia]);
+  const repetir = () => {
+    if (reproduciendo || !secuencia.length) return;
+    setTurnoUsuario(0);
+    reproducir(secuencia, false);
+  };
 
   const elegirSonido = (id: string) => {
     if (resultado || reproduciendo) return;
@@ -66,14 +75,13 @@ export default function MemoriaAuditiva({
       if (turnoUsuario + 1 >= secuencia.length) {
         setResultado('correcto');
         speak(F_BIEN_LECTURA);
-        setNivel(nivel + 1);
+        const siguienteNivel = nivel + 1;
+        setNivel(siguienteNivel);
         onCorrecto();
         setTimeout(() => {
           setResultado(null);
-          setTurnoUsuario(0);
-          setSecuencia([]);
-          iniciarSecuencia();
-        }, 2000);
+          iniciarSecuencia(siguienteNivel);
+        }, 1800);
       }
     } else {
       setResultado('incorrecto');
@@ -81,17 +89,16 @@ export default function MemoriaAuditiva({
       onError();
       setTimeout(() => {
         setResultado(null);
-        setTurnoUsuario(0);
-        setSecuencia([]);
         setNivel(1);
-        iniciarSecuencia();
+        iniciarSecuencia(1);
       }, 2000);
     }
   };
 
   useEffect(() => {
-    iniciarSecuencia();
-  }, [iniciarSecuencia]);
+    iniciarSecuencia(nivel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="memoria-auditiva" style={{ textAlign: 'center', padding: '1rem' }}>
@@ -107,7 +114,7 @@ export default function MemoriaAuditiva({
           <button
             key={s.id}
             onClick={() => elegirSonido(s.id)}
-            disabled={resultado || reproduciendo || isSpeaking || turnoUsuario >= secuencia.length}
+            disabled={!!resultado || reproduciendo || turnoUsuario >= secuencia.length}
             className={`letter-btn ${turnoUsuario > 0 && secuencia[turnoUsuario - 1] === s.id ? 'selected' : ''}`}
             style={{
               width: '72px',
@@ -125,6 +132,15 @@ export default function MemoriaAuditiva({
           </button>
         ))}
       </div>
+
+      <button
+        className="listen-btn"
+        onClick={repetir}
+        disabled={reproduciendo || !secuencia.length}
+        style={{ marginBottom: '1rem', minHeight: '48px' }}
+      >
+        {reproduciendo ? '🦉 Escuchando…' : '🔁 Repetir'}
+      </button>
 
       {!secuencia.length && !reproduciendo && !resultado && (
         <p style={{ color: '#666', fontSize: '0.9rem' }}>Preparando secuencia…</p>

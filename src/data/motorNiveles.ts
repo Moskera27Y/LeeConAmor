@@ -1,4 +1,6 @@
-﻿export type EtapaId = 'vocales' | 'silabas' | 'palabras' | 'oraciones';
+﻿import { recompensaEtapa } from './frasesVoz';
+
+export type EtapaId = 'vocales' | 'silabas' | 'palabras' | 'oraciones';
 
 export interface EstadoMotor {
   etapa: EtapaId;
@@ -91,7 +93,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
       distractores,
       instruction: `Escucha a Léo y toca: ${targets.join(', ')}.`,
       wordsToHighlight: [targets.join('')],
-      reward: '¡Muy bien con las vocales!',
+      reward: recompensaEtapa('vocales'),
       phonetics: foneticas(targets),
     };
   }
@@ -110,7 +112,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
       distractores,
       instruction: `Junta los sonidos para formar ${silabas.join(' y ')}. Toca sus letras.`,
       wordsToHighlight: silabas,
-      reward: '¡Formaste sílabas!',
+      reward: recompensaEtapa('silabas'),
       phonetics: foneticas(targets),
     };
   }
@@ -127,7 +129,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
       distractores,
       instruction: `Busca estas letras del abecedario: ${targets.join(', ')}.`,
       wordsToHighlight: [targets.join('')],
-      reward: '¡Dominas el abecedario!',
+      reward: recompensaEtapa('palabras'),
       phonetics: foneticas(targets),
     };
   }
@@ -143,7 +145,7 @@ export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
     distractores,
     instruction: `Repasemos juntitos: ${targets.join(', ')}.`,
     wordsToHighlight: [targets.join('')],
-    reward: '¡Qué memoria tan linda!',
+    reward: recompensaEtapa('repaso'),
     phonetics: foneticas(targets),
   };
 }

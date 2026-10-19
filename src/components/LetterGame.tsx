@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Level } from '../data/curriculum';
 import BotMessage from './BotMessage';
 import { ABECEDARIO } from '../data/motorNiveles';
-import { F_ERROR_CASI, F_FELICIDADES_FIN, F_NIVEL_OK } from '../data/frases';
-import { FRASES_VOZ } from '../data/frasesVoz';
+import { F_ERROR_CASI, F_NIVEL_OK } from '../data/frases';
+import { fraseToca } from '../data/frasesVoz';
 
 declare global {
   interface Window {
@@ -15,6 +15,7 @@ interface Props {
   levels: Level[];
   nombre: string;
   speak: (t: string) => void;
+  hablarSecuencia?: (t: string[]) => Promise<boolean>;
   isSpeaking: boolean;
   score: number;
   setScore: (fn: (s: number) => number) => void;
@@ -23,11 +24,18 @@ interface Props {
   onResultado?: (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => void;
   onAvanzar?: () => void;
   tituloNivel?: string;
-  // Frase de guía pregenerada (depende de la etapa): evita textos dinámicos.
-  instruccionVoz?: string;
 }
 
 const PRAISE = ['¡Muy bien! 🎉', '¡Genial! ⭐', '¡Súper! 🌈', '¡Hermoso! 💛'];
+
+function barajar<T>(lista: T[]): T[] {
+  const copia = [...lista];
+  for (let i = copia.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
 
 async function boomConfetti(colores?: string[]) {
   try {
@@ -40,198 +48,196 @@ async function boomConfetti(colores?: string[]) {
   } catch { /* noop */ }
 }
 
-export default function LetterGame({ levels = [], nombre = '', speak = () => {}, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel, instruccionVoz }: Props & { key?: string }) {
-  const [currentLevel, setCurrentLevel] = useState(1);
-  const [letters, setLetters] = useState<string[]>([]);
-  const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
-  const [wrongLetters, setWrongLetters] = useState<string[]>([]);
+export default function LetterGame({
+  levels = [], nombre = '', speak = () => {}, hablarSecuencia, isSpeaking = false,
+  score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {},
+  onResultado, onAvanzar, tituloNivel,
+}: Props & { key?: string }) {
+  const config: Level | undefined = levels[0];
+
+  const [targets, setTargets] = useState<string[]>([]);
+  const [ronda, setRonda] = useState(0);
+  const [target, setTarget] = useState('');
+  const [opciones, setOpciones] = useState<string[]>([]);
+  const [elegida, setElegida] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
+  const [aciertos, setAciertos] = useState(0);
+  const [intentos, setIntentos] = useState(0);
+  const [falladas, setFalladas] = useState<string[]>([]);
+  const [completado, setCompletado] = useState(false);
+  const [reportado, setReportado] = useState(false);
   const [botTipo, setBotTipo] = useState<'bien' | 'mal' | 'info'>('info');
   const [botTexto, setBotTexto] = useState('');
-  const [attempts, setAttempts] = useState(0);
-  const [foundWords, setFoundWords] = useState<string[]>([]);
-  const [completedLevels, setCompletedLevels] = useState<number[]>([]);
-  const [reportado, setReportado] = useState<number[]>([]);
+  const temporizador = useRef<number | null>(null);
 
-const NIVEL_VACIO: Level = {
-  id: 0,
-  rango: '3-5',
-  tipo: 'vocal',
-  titulo: 'Letras',
-  descripcion: 'Reconocer la letra que escuchas',
-  targetLetters: [],
-  distractores: [],
-  instruction: 'Escucha a Léo y toca la letra correcta',
-  reward: '¡Muy bien!',
-  phonetics: {},
-  wordsToHighlight: [],
-  emoji: '🦉',
-  palabrasEjemplo: [],
-};
-
-const config: Level = levels.find((l) => l.id === currentLevel) || levels[0] || NIVEL_VACIO;
-
-const generateLetters = useCallback(() => {
-  const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
-  let distractores = Array.isArray(config.distractores) ? config.distractores : [];
-
-    // Si no hay distractores definidos, generarlos automáticamente del abecedario
-    if (distractores.length === 0) {
-      const todasLasLetras = ABECEDARIO.filter((l) => !targets.includes(l));
-      distractores = todasLasLetras.sort(() => Math.random() - 0.5).slice(0, 3);
-    }
-
-    // Mostrar objetivo + 3 distractores = 4 letras (o más si hay más targets)
-    const mix = [...targets, ...distractores].sort(() => Math.random() - 0.5);
-    setLetters(mix);
-    setSelectedLetters([]);
-    setWrongLetters([]);
-    setFoundWords([]);
-    // En pantalla va la instrucción detallada del nivel; lo que Léo DICE es una
-    // frase fija pregenerada con la voz clonada (según la etapa).
+  // Una sola ronda a la vez: el niño escucha UNA letra y la busca.
+  const armarRonda = useCallback((letra: string) => {
+    if (!config) return;
+    setTarget(letra);
+    setResultado(null);
+    setElegida(null);
+    const distractores = (config.distractores || []).filter((d) => d && d !== letra);
+    const relleno = barajar(ABECEDARIO.filter((l) => l !== letra && !distractores.includes(l)));
+    const opcionesRonda = barajar([letra, ...[...distractores, ...relleno].slice(0, 3)]);
+    setOpciones(opcionesRonda);
     setBotTipo('info');
-    setBotTexto(config.instruction || '');
-    speak(instruccionVoz || FRASES_VOZ.juegoLetrasRepaso);
-  }, [config, speak, instruccionVoz]);
+    setBotTexto(`${config.descripcion}. Escucha a Léo y toca la letra.`);
+    speak(fraseToca(letra));
+  }, [config, speak]);
 
+  // Preparar el nivel (una vez por nivel).
   useEffect(() => {
-    generateLetters();
+    if (!config) return;
+    if (temporizador.current) window.clearTimeout(temporizador.current);
+    const orden = barajar(Array.from(new Set(config.targetLetters || [])));
+    setTargets(orden);
+    setRonda(0);
+    setAciertos(0);
+    setIntentos(0);
+    setFalladas([]);
+    setCompletado(false);
+    setReportado(false);
+    if (orden[0]) armarRonda(orden[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLevel]);
+  }, [config?.id]);
 
   useEffect(() => {
-    onProgress(completedLevels.length, levels.length);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [completedLevels.length]);
+    return () => {
+      if (temporizador.current) window.clearTimeout(temporizador.current);
+    };
+  }, []);
 
-  const isLevelComplete = () => {
-    const targets = Array.isArray(config.targetLetters) ? config.targetLetters : [];
-    return targets.every((t) => selectedLetters.includes(t)) && selectedLetters.length >= Math.min(3, targets.length);
-  };
+  const siguienteRonda = useCallback(() => {
+    const i = ronda + 1;
+    if (i >= targets.length) {
+      setCompletado(true);
+      return;
+    }
+    setRonda(i);
+    armarRonda(targets[i]);
+  }, [ronda, targets, armarRonda]);
 
-  // Reportar resultado una sola vez por nivel (alimenta el motor infinito)
+  // Al completar: reportar al motor una sola vez y celebrar con la voz clonada.
   useEffect(() => {
-    if (isLevelComplete() && onResultado && !reportado.includes(config.id)) {
-      setReportado((p) => [...p, config.id]);
+    if (!completado || reportado || !config) return;
+    setReportado(true);
+    setBotTipo('bien');
+    setBotTexto(`${F_NIVEL_OK} ${config.reward}`);
+    if (hablarSecuencia) hablarSecuencia([F_NIVEL_OK, config.reward]);
+    else speak(config.reward);
+    boomConfetti();
+    if (onResultado) {
+      const falladasUnicas = Array.from(new Set<string>(falladas));
+      const acertadasUnicas = Array.from(new Set<string>(targets));
       onResultado({
-        aciertos: selectedLetters.length,
-        total: selectedLetters.length + wrongLetters.length,
-        falladas: [...new Set<string>(wrongLetters)],
-        acertadas: [...new Set<string>(selectedLetters)],
+        aciertos,
+        total: Math.max(1, aciertos + intentos),
+        falladas: falladasUnicas,
+        acertadas: acertadasUnicas,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLetters, wrongLetters, config.id]);
+  }, [completado]);
 
-  const handleLetterClick = (letter: string) => {
-    if (isLevelComplete() || selectedLetters.includes(letter)) return;
-    if (wrongLetters.includes(letter)) return;
+  useEffect(() => {
+    onProgress(completado ? targets.length : ronda, Math.max(1, targets.length));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ronda, completado, targets.length]);
 
-    const targets = config.targetLetters;
-    if (targets.includes(letter)) {
-      const next = [...selectedLetters, letter];
-      setSelectedLetters(next);
-      const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
+  const tocar = (letra: string) => {
+    if (!config || resultado || completado) return;
+    setElegida(letra);
+    if (letra === target) {
+      setResultado('correcto');
+      setAciertos((n) => n + 1);
       setScore((s) => s + 10);
-      const word = next.join('');
-      const words = config.wordsToHighlight || [];
-      if (words.some((w) => w.startsWith(word)) && word.length >= 2) {
-        setFoundWords((p) => (p.includes(word) ? p : [...p, word]));
-        setBotTipo('bien');
-        setBotTexto(`${praise} ${nombre}, formaste ${word}.`);
-        speak(praise);
-        setScore((s) => s + 5);
-        boomConfetti();
-      } else {
-        const fon = config.phonetics?.[letter] || letter;
-        setBotTipo('bien');
-        setBotTexto(`${praise} ${nombre}, esa es la ${letter}, suena ${fon}.`);
-        speak(praise);
-        boomConfetti();
-      }
-      if (config.targetLetters.every((t) => next.includes(t)) && next.length >= Math.min(3, config.targetLetters.length)) {
-        if (!completedLevels.includes(config.id)) setCompletedLevels((p) => [...p, config.id]);
-        setBotTipo('bien');
-        setBotTexto(`${F_NIVEL_OK} ${config.reward}`);
-        speak(config.reward);
-      }
+      const praise = PRAISE[Math.floor(Math.random() * PRAISE.length)];
+      setBotTipo('bien');
+      setBotTexto(`${praise} ${nombre}, esa es la letra ${target}.`);
+      speak(praise);
+      boomConfetti();
+      temporizador.current = window.setTimeout(siguienteRonda, 1200);
     } else {
-      setWrongLetters((p) => [...p, letter]);
-      setAttempts((a) => a + 1);
+      setResultado('incorrecto');
+      setIntentos((n) => n + 1);
+      setFalladas((f) => (f.includes(letra) ? f : [...f, letra]));
       setScore((s) => Math.max(0, s - 5));
       setBotTipo('mal');
-      setBotTexto(`¡Casi, ${nombre}! Esa es la ${letter}. Aquí buscamos: ${config.targetLetters.join(', ')}. ${config.phonetics?.[config.targetLetters[0]] || ''} Prueba otra vez con amor ❤️`);
+      setBotTexto(`¡Casi, ${nombre}! Esa es la ${letra}. Buscamos la ${target}. Prueba otra vez con amor ❤️`);
       speak(F_ERROR_CASI);
-      boomConfetti(['#ff6b6b', '#ffc107', '#ff9f40']);
-      setTimeout(() => {
-        setWrongLetters((p) => p.filter((l) => l !== letter));
-      }, 1500);
+      temporizador.current = window.setTimeout(() => {
+        setResultado(null);
+        setElegida(null);
+      }, 1200);
     }
   };
 
-  const retry = () => {
-    generateLetters();
+  const reintentar = () => {
+    if (!config) return;
+    const orden = barajar(Array.from(new Set(config.targetLetters || [])));
+    setTargets(orden);
+    setRonda(0);
+    setAciertos(0);
+    setIntentos(0);
+    setFalladas([]);
+    setCompletado(false);
+    setReportado(false);
+    if (orden[0]) armarRonda(orden[0]);
   };
 
-  const nextLevel = () => {
-    if (onAvanzar) {
-      setScore((s) => s + 30);
-      onAvanzar();
-      return;
-    }
-    if (currentLevel < levels.length) {
-      setCurrentLevel((c) => c + 1);
-      setScore((s) => s + 30);
-    } else {
-      setScore((s) => s + 50);
-      setBotTipo('bien');
-      setBotTexto(`¡Felicidades, ${nombre}! Terminaste todo. Ahora lees por tu cuenta. 🎉`);
-      speak(F_FELICIDADES_FIN);
-      boomConfetti();
-    }
-  };
+  if (!config) return null;
 
-  const complete = isLevelComplete();
+  const totalRondas = Math.max(1, targets.length);
 
   return (
     <div className="letter-game">
       <div className="game-header">
         <h2 className="level-title">
-          {tituloNivel || `Nivel ${currentLevel} - ${config.titulo}`}
+          {tituloNivel || config.titulo}
           <span className="level-badge">{config.descripcion}</span>
         </h2>
-        <div className="score-display">⭐ Puntos de {nombre}: <span className="score">{score}</span> · intentos con amor: {attempts}</div>
+        <div className="score-display">⭐ Puntos de {nombre}: <span className="score">{score}</span> · intentos con amor: {intentos}</div>
 
         <BotMessage tipo={botTipo} texto={botTexto} hablando={isSpeaking} nombre={nombre} onRepeat={onRepeat} />
 
-        <div className="level-instruction"><p>🎯 {config.instruction}</p><p className="targets">Busca: {config.targetLetters.join(' · ')}</p></div>
+        <div className="level-instruction">
+          <p>🎯 Escucha a Léo y toca la letra que dice</p>
+          <p className="targets">Ronda {Math.min(ronda + 1, totalRondas)} de {totalRondas}</p>
+        </div>
 
-        {selectedLetters.length > 0 && <div className="selected-letters">✅ Correctas: {selectedLetters.join(' ')}</div>}
-        {foundWords.length > 0 && <div className="found-words">🌟 Palabras: {foundWords.join(', ')}</div>}
+        {aciertos > 0 && <div className="selected-letters">✅ Aciertos: {aciertos}</div>}
       </div>
 
       <div className="letters-container">
-        {letters.map((letter, i) => (
+        {opciones.map((letra, i) => (
           <button
-            key={`${letter}-${i}`}
-            className={`letter-btn ${selectedLetters.includes(letter) ? 'selected' : ''} ${wrongLetters.includes(letter) ? 'wrong' : ''}`}
-            onClick={() => handleLetterClick(letter)}
+            key={`${letra}-${i}`}
+            className={`letter-btn ${resultado === 'correcto' && elegida === letra ? 'selected' : ''} ${resultado === 'incorrecto' && elegida === letra ? 'wrong' : ''}`}
+            onClick={() => tocar(letra)}
+            disabled={!!resultado || completado}
             style={{ animationDelay: `${i * 80}ms` }}
-            aria-label={`Letra ${letter}`}
+            aria-label={`Letra ${letra}`}
           >
-            {letter}
+            {letra}
           </button>
         ))}
       </div>
 
-      {complete && (onAvanzar || currentLevel < levels.length) && <div className="level-complete">🎉 ¡Nivel completado! {config.reward}</div>}
-      {complete && !onAvanzar && currentLevel >= levels.length && (
-        <div className="game-complete">🎉🎉 ¡FELICIDADES {nombre}! Terminaste todo.<br />Ahora puedes leer por tu cuenta.</div>
-      )}
+      {completado && <div className="level-complete">🎉 ¡Nivel completado! {config.reward}</div>}
 
       <div className="game-actions">
-        <button className="retry-btn" onClick={retry}>🔄 Intentar de nuevo este nivel</button>
-        <button className="next-btn" onClick={nextLevel} disabled={!complete} title={!complete ? 'Termina primero con amor' : ''}>
-          {!complete ? '🔒 Termina primero' : !onAvanzar && currentLevel >= levels.length ? '🎉 JUGAR OTRA VEZ' : 'SIGUIENTE NIVEL →'}
+        <button className="retry-btn" onClick={reintentar}>🔄 Intentar de nuevo este nivel</button>
+        <button
+          className="next-btn"
+          onClick={() => {
+            setScore((s) => s + 30);
+            if (onAvanzar) onAvanzar();
+            else reintentar();
+          }}
+          disabled={!completado}
+          title={!completado ? 'Termina primero con amor' : ''}
+        >
+          {!completado ? '🔒 Termina primero' : 'SIGUIENTE NIVEL →'}
         </button>
       </div>
       <div className="score-hint">Puntuación actual: {score} (acierto +10, error -5 sin bajar de 0)</div>

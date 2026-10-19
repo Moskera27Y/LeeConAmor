@@ -6,10 +6,19 @@
 //   - Los audios fijos quedan served por Vercel: la app habla siempre con la
 //     voz buena, gratis y sin esperas.
 //
+// Cómo funciona (importante):
+//   - TODO se guarda con el texto NORMALIZADO (textoHablado: sin emojis ni
+//     símbolos). Así la clave que pide la app en tiempo real coincide EXACTA
+//     con la clave generada. El nombre de archivo es sha1(texto normalizado).
+//   - El mapa AUDIO_FIJO se RECONSTRUYE desde la lista recolectada: las claves
+//     viejas que ya no se usan desaparecen (y sus .wav se borran).
+//   - Un texto se (re)genera si falta su archivo canónico o si el mapa no
+//     apunta ya a ese archivo (por ejemplo, textos que antes tenían emoji).
+//
 //  Reanudable: si se corta, vuelve a empezar y salta lo que YA ESTÁ CLONADO.
 //  Reutiliza el caché en server/voz-cache (audio ya clonado).
-//  --rehacer  regenera tambien los archivos que ya existen (util para
-//             reemplazar audios viejos de Gemini por la voz clonada).
+//  --rehacer  regenera tambien los archivos que ya existen.
+//  --contar   solo informa qué falta, sin generar nada.
 //
 // Uso:
 //   1) Arrancar el clon:  server\voz-clon\iniciar-voz-clon.bat   (o npm run clon:servidor)
@@ -18,6 +27,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { textoHablado } = require('./voz-texto.cjs');
+const fj = require('./frases-juego.cjs');
 
 const RAIZ = path.join(__dirname, '..');
 const OUT_DIR = path.join(RAIZ, 'public', 'audio');
@@ -37,113 +48,122 @@ const nombreArchivo = (texto, prefijo) => prefijo + sha12(texto) + '.wav';
 const claveCache = (texto) =>
   crypto.createHash('sha1').update(`v4:${VOZ}:${texto}`).digest('hex') + '.json';
 
+const leerFuente = (...partes) =>
+  fs.readFileSync(path.join(RAIZ, 'src', ...partes), 'utf8');
+
 /* ------------------------------------------------------------------ */
 /* 1. Recolectar TODOS los textos que la app puede pedir               */
+/*    (siempre normalizados con textoHablado)                          */
 /* ------------------------------------------------------------------ */
 function recolectarTextos() {
-  const { FRASES_FIJAS } = require('./frases-fijas.cjs');
   const { NOMBRES } = require('./nombres-comunes.cjs');
-  const lecTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'secuenciaLecciones.ts'), 'utf8');
-
-  // Frases sueltas que usa la app (frases.ts)
-  const frasesTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'frases.ts'), 'utf8');
-  const sueltas = [...frasesTs.matchAll(/=\s*'([^']{3,})'/g)]
-    .map((m) => m[1])
-    .filter((t) => /[a-záéíóúñ]{3}/i.test(t));
-
-  // Frases de UI (catálogo único: src/data/frasesVoz.ts)
-  const vozTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'frasesVoz.ts'), 'utf8');
-  const guias = new Set();
-  for (const m of vozTs.matchAll(/:\s*'([^']{4,})'/g)) guias.add(m[1]);
-
-  // Términos sueltos que Léo pronuncia: letras, sílabas y palabras.
-  // Se sacan del currículo y de los juegos para que la lista sea exacta.
-  const terminos = new Set();
-  // objetivos de actividad (vocales, sílabas y palabras del currículo)
-  for (const m of lecTs.matchAll(/objetivo:\s*'([^']+)'/g)) terminos.add(m[1]);
-  // pistas de pronunciación ("aaa como manzana", "ma-ma, despacio ma-ma"...)
-  for (const m of lecTs.matchAll(/pista:\s*'([^']+)'/g)) terminos.add(m[1]);
-  // palabras de los juegos nuevos
-  const juegosTs = ['EscuchaYElige', 'FormarSílabaTrabada', 'PalabrasDesordenadas', 'MemoriaAuditiva', 'TrazoLetra']
+  const lecTs = leerFuente('data', 'secuenciaLecciones.ts');
+  const frasesTs = leerFuente('data', 'frases.ts');
+  const useVoiceTs = leerFuente('hooks', 'useVoice.ts');
+  const juegosTs = ['EscuchaYElige', 'FormarSílabaTrabada', 'PalabrasDesordenadas', 'MemoriaAuditiva', 'TrazoLetra', 'LeerConElDedo']
     .map((f) => path.join(RAIZ, 'src', 'components', `${f}.tsx`))
     .filter((f) => fs.existsSync(f))
     .map((f) => fs.readFileSync(f, 'utf8'))
     .join('\n');
-  for (const m of juegosTs.matchAll(/(?:palabra|silaba|texto|sonido):\s*'([^']+)'/g)) terminos.add(m[1]);
-  for (const m of juegosTs.matchAll(/letras:\s*\[([^\]]+)\]/g)) {
-    for (const l of m[1].matchAll(/'([^']+)'/g)) terminos.add(l[1]);
-  }
-  for (const m of juegosTs.matchAll(/fonetica:\s*'([^']+)'/g)) terminos.add(m[1]);
-  // tarjetas de solo lectura
-  const cardTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'curriculum.ts'), 'utf8');
-  for (const m of cardTs.matchAll(/objetivo:\s*'([^']+)',\s*imagen:[^\n]*pista:\s*'([^']+)'/g)) {
-    terminos.add(m[1]);
-    terminos.add(m[2]);
-  }
 
-  // Currículo: audioIntro, audioCelebracion, audioFijo, textoTTS
-  const lecciones = new Set();
-  for (const m of lecTs.matchAll(/(?:audioIntro|audioCelebracion|audioFijo|textoTTS):\s*'([^']+)'/g)) {
-    lecciones.add(m[1]);
-  }
-
-  // Feedback que el juego arma con el nombre del niño.
-  // Solo varies en el nombre, para que se puedan pregenerar (ver frases.ts).
-  const conNombre = new Set();
-  for (const n of NOMBRES) {
-    conNombre.add(`¡Hola, ${n}! Vamos a leer juntitos.`);
-    conNombre.add(`¡Muy bien, ${n}! ¡Qué bien leíste! 🌟`);
-    conNombre.add(`¡Casi, ${n}! Vamos juntitos, despacio.`);
-    conNombre.add(`Tú puedes, ${n}. Escucha otra vez e inténtalo.`);
-  }
-
-  // Respaldos SIN nombre (siempre disponibles, cubren nombres nuevos).
-  const genericas = new Set([
-    '¡Hola! Vamos a leer juntitos.',
-    '¡Qué lindo leíste! 🌟',
-    '¡Buen esfuerzo! Vamos juntitos despacio.',
-    '¡Buen intento! Una vez más.',
-  ]);
-
+  const vistos = new Set();
   const lista = [];
   const push = (texto, prefijo, minimo = 3) => {
-    const t = String(texto).trim();
-    if (t.length >= minimo) lista.push({ texto: t, prefijo });
+    const t = textoHablado(texto);
+    if (!t || t.length < minimo) return;
+    if (vistos.has(t)) return;
+    vistos.add(t);
+    lista.push({ texto: t, prefijo });
   };
 
-  // --- Orden de prioridad: lo mas usado primero ---
-  // 1) Frases de UI del juego (felicitaciones, errores, transiciones)
-  for (const t of FRASES_FIJAS) push(t, PREFIJOS.fijo);
-  for (const t of sueltas) push(t, PREFIJOS.fijo);
-  // 2) Frases guía de cada actividad (lo que dice al presentar un juego)
-  for (const t of guias) push(t, PREFIJOS.fijo);
-  // 3) Respaldos genericos (nombres que aun no tengan audio propio)
-  for (const t of genericas) push(t, PREFIJOS.fijo);
-  // 4) Currículo: intro/celebracion de lección y textos de actividad
-  for (const t of lecciones) push(t, PREFIJOS.leccion);
-  // 5) Términos sueltos: letras, sílabas y palabras que Léo pronuncia.
-  //    minimo 1 porque una letra sola ("A") también se dice en voz alta.
-  for (const t of terminos) push(t, PREFIJOS.palabra, 1);
-  // 6) Saludo de cada nombre comun
-  for (const n of NOMBRES) push(`¡Hola, ${n}! Vamos a leer juntitos.`, PREFIJOS.nombre);
-  // 7) Feedback con nombre (menos frecuente: solo al leer en voz alta)
-  for (const t of conNombre) {
-    if (t.startsWith('¡Hola,')) continue;
-    push(t, PREFIJOS.nombre);
+  /* --- Frases fijas de la app (felicitaciones, errores, transiciones) --- */
+  const bloqueFijas = frasesTs.match(/FRASES_FIJAS\s*=\s*\[([\s\S]*?)\];/);
+  if (bloqueFijas) {
+    for (const m of bloqueFijas[1].matchAll(/'([^']+)'/g)) push(m[1], PREFIJOS.fijo);
+  }
+  for (const m of frasesTs.matchAll(/export const F_[A-Z_]+ = '([^']+)'/g)) {
+    push(m[1], PREFIJOS.fijo);
+  }
+  // Saludo de prueba de voz ("Hola, soy Léo. Vamos a leer juntitos con amor.")
+  for (const m of useVoiceTs.matchAll(/speak\('([^']+)'\)/g)) push(m[1], PREFIJOS.fijo);
+  // Respaldos SIN nombre (cubren nombres nuevos)
+  push('¡Hola! Vamos a leer juntitos.', PREFIJOS.fijo);
+
+  /* --- Familias construidas (mismas que src/data/frasesVoz.ts) --- */
+  for (const l of fj.LETRAS) push(fj.fraseToca(l), PREFIJOS.fijo);
+
+  const objetivos = [...new Set([...lecTs.matchAll(/objetivo:\s*'([^']+)'/g)].map((m) => m[1]))];
+  for (const o of objetivos) {
+    if (o === 'cuento_corto') continue;
+    if (fj.tipoObjetivo(o) !== 'oracion') push(fj.fraseToca(o), PREFIJOS.fijo);
   }
 
-  // Deduplicar por texto+prefijo
-  const vistos = new Set();
-  return lista.filter((x) => {
-    const k = x.prefijo + '::' + x.texto;
-    if (vistos.has(k)) return false;
-    vistos.add(k);
-    return true;
-  });
+  const palabrasSI = [...new Set(
+    [...lecTs.matchAll(/tipo:\s*'silaba_inicial'[^}]*?palabra:\s*'([^']+)'/g)].map((m) => m[1])
+  )];
+  for (const p of palabrasSI) push(fj.fraseSilabaInicial(p), PREFIJOS.fijo);
+
+  const silabasFormar = [...new Set(
+    [...lecTs.matchAll(/tipo:\s*'formar_silaba'[^}]*?objetivo:\s*'([^']+)'/g)].map((m) => m[1])
+  )];
+  for (const s of new Set([...silabasFormar, ...fj.SILABAS_TRABADAS])) {
+    push(fj.fraseFormaSílaba(s), PREFIJOS.fijo);
+  }
+
+  const palabrasFormar = [...new Set(
+    [...lecTs.matchAll(/tipo:\s*'formar_palabra'[^}]*?objetivo:\s*'([^']+)'/g)].map((m) => m[1])
+  )];
+  for (const p of new Set([...palabrasFormar, ...fj.PALABRAS_DESORDENADAS])) {
+    push(fj.fraseFormaPalabra(p), PREFIJOS.fijo);
+  }
+
+  for (const n of fj.PALABRAS_ESCUCHA_Y_ELIGE) push(fj.fraseImagen(n), PREFIJOS.fijo);
+  for (const n of fj.INSIGNIAS) push(fj.fraseInsignia(n), PREFIJOS.fijo);
+  for (const e of fj.ETAPAS) push(fj.recompensaEtapa(e), PREFIJOS.fijo);
+  for (const v of Object.values(fj.FRASES_VOZ)) push(v, PREFIJOS.fijo);
+
+  /* --- Currículo: intro/celebración de cada lección --- */
+  for (const m of lecTs.matchAll(/(?:audioIntro|audioCelebracion):\s*'([^']+)'/g)) {
+    push(m[1], PREFIJOS.leccion);
+  }
+
+  /* --- Términos que Léo pronuncia sueltos: letras, sílabas y palabras --- */
+  // Objetivos del currículo (incluye oraciones que lee ReadingCard)
+  for (const o of objetivos) {
+    if (o === 'cuento_corto') continue;
+    push(o, PREFIJOS.palabra, 1);
+  }
+  // Letras del abecedario (Graduación, juegos)
+  for (const l of fj.LETRAS) push(l, PREFIJOS.palabra, 1);
+  // Palabras del juego (FormarPalabra, PalabrasDesordenadas, tarjetas)
+  for (const p of fj.PALABRAS_JUEGO) push(p, PREFIJOS.palabra, 1);
+  // Letras y sílabas sueltas que los juegos dicen al tocar
+  for (const fuente of [lecTs, juegosTs]) {
+    for (const m of fuente.matchAll(/letras:\s*\[([^\]]+)\]/g)) {
+      for (const l of m[1].matchAll(/'([^']+)'/g)) push(l[1], PREFIJOS.palabra, 1);
+    }
+    for (const m of fuente.matchAll(/silabas:\s*\[([^\]]+)\]/g)) {
+      for (const s of m[1].matchAll(/'([^']+)'/g)) push(s[1], PREFIJOS.palabra, 1);
+    }
+  }
+  // Palabras del cuento (Storytime las dice una por una)
+  for (const m of lecTs.matchAll(/tipo:\s*'storytime'[^}]*?textoTTS:\s*'([^']+)'/g)) {
+    for (const w of m[1].split(/\s+/)) push(w, PREFIJOS.palabra, 1);
+  }
+
+  /* --- Nombres: saludo + feedback (solo varía el nombre) --- */
+  for (const n of NOMBRES) {
+    push(`¡Hola, ${n}! Vamos a leer juntitos.`, PREFIJOS.nombre);
+    push(`¡Muy bien, ${n}! ¡Qué bien leíste! 🌟`, PREFIJOS.nombre);
+    push(`¡Casi, ${n}! Vamos juntitos, despacio.`, PREFIJOS.nombre);
+    push(`Tú puedes, ${n}. Escucha otra vez e inténtalo.`, PREFIJOS.nombre);
+  }
+
+  return lista;
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Mapa actual + manifiesto de lo ya clonado                      */
+/* 2. Mapa actual + manifiesto de lo ya clonado                        */
 /* ------------------------------------------------------------------ */
 function leerMapaActual() {
   const mapa = {};
@@ -153,6 +173,16 @@ function leerMapaActual() {
     if (m) Object.assign(mapa, JSON.parse(m[0]));
   } catch { /* noop */ }
   return mapa;
+}
+
+// Claves del mapa viejo normalizadas (migra claves con emoji).
+function mapaNormalizado(mapaViejo) {
+  const out = {};
+  for (const [k, v] of Object.entries(mapaViejo)) {
+    const n = textoHablado(k);
+    if (n && !out[n]) out[n] = v;
+  }
+  return out;
 }
 
 function leerManifiesto() {
@@ -199,53 +229,101 @@ function audioDelCache(texto) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4. Principal                                                       */
+/* 4. Mapa + limpieza de huérfanos                                    */
+/* ------------------------------------------------------------------ */
+const canonicoDe = (x) => `/audio/${nombreArchivo(x.texto, x.prefijo)}`;
+
+// El mapa se reconstruye desde la lista recolectada: sin claves muertas.
+function construirMapa(lista, mapaViejo) {
+  const mapa = {};
+  for (const x of lista) {
+    const canonico = canonicoDe(x);
+    if (fs.existsSync(path.join(OUT_DIR, path.basename(canonico)))) {
+      mapa[x.texto] = canonico;
+    } else if (mapaViejo[x.texto]) {
+      // Falló la regeneración: conservar el audio viejo (sigue siendo válido).
+      mapa[x.texto] = mapaViejo[x.texto];
+    }
+  }
+  return mapa;
+}
+
+function limpiarHuerfanos(mapa) {
+  const usados = new Set(Object.values(mapa).map((p) => path.basename(p)));
+  let borrados = 0;
+  if (!fs.existsSync(OUT_DIR)) return 0;
+  for (const f of fs.readdirSync(OUT_DIR)) {
+    if (!f.endsWith('.wav')) continue;
+    if (!usados.has(f)) {
+      fs.unlinkSync(path.join(OUT_DIR, f));
+      borrados++;
+    }
+  }
+  return borrados;
+}
+
+function escribirMapa(mapa) {
+  const ordenado = {};
+  for (const k of Object.keys(mapa).sort()) ordenado[k] = mapa[k];
+  fs.writeFileSync(
+    MAPA,
+    '// Generado por npm run voz:clon (voz CLONADA de Léo). No editar a mano.\n' +
+      `export const AUDIO_FIJO: Record<string, string> = ${JSON.stringify(ordenado, null, 2)};\n`
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Principal                                                       */
 /* ------------------------------------------------------------------ */
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  // ¿El clon responde?
-  let disponible = false;
-  try {
-    const r = await fetch(`${CLON}/salud`, { signal: AbortSignal.timeout(8000) });
-    disponible = r.ok;
-  } catch { /* noop */ }
-  if (!disponible) {
-    console.error(`\n[ERROR] El clon no responde en ${CLON}`);
-    console.error('Arranca el servicio con:  server\\voz-clon\\iniciar-voz-clon.bat');
-    console.error('(La primera vez carga el modelo ~1-2 minutos y puede tardar.)');
-    process.exit(1);
-  }
-
   const lista = recolectarTextos();
-  const mapa = leerMapaActual();
+  const mapaViejo = mapaNormalizado(leerMapaActual());
   const manifiesto = leerManifiesto();
+
+  // Pendiente = falta el archivo canónico o el mapa no apunta ya a él.
+  const esPendiente = (x) =>
+    RECHACER ||
+    !fs.existsSync(path.join(OUT_DIR, nombreArchivo(x.texto, x.prefijo))) ||
+    mapaViejo[x.texto] !== canonicoDe(x);
+  const pendientes = lista.filter(esPendiente);
 
   // Modo informativo: cuenta qué falta sin generar nada.
   if (process.argv.includes('--contar')) {
     const porPref = {};
     for (const x of lista) porPref[x.prefijo] = (porPref[x.prefijo] || 0) + 1;
-    const faltan = lista.filter((x) => !manifiesto.has(x.texto) || !fs.existsSync(path.join(OUT_DIR, nombreArchivo(x.texto, x.prefijo))));
     const faltanPorPref = {};
-    for (const x of faltan) faltanPorPref[x.prefijo] = (faltanPorPref[x.prefijo] || 0) + 1;
+    for (const x of pendientes) faltanPorPref[x.prefijo] = (faltanPorPref[x.prefijo] || 0) + 1;
     console.log('Textos totales:', lista.length, JSON.stringify(porPref));
-    console.log('Faltan clonar:  ', faltan.length, JSON.stringify(faltanPorPref));
-    const mins = (faltan.length * 21) / 60;
+    console.log('Faltan clonar:  ', pendientes.length, JSON.stringify(faltanPorPref));
+    const mins = (pendientes.length * 21) / 60;
     console.log(`Tiempo estimado a 21s/texto: ~${mins.toFixed(0)} min (${(mins / 60).toFixed(1)} h)`);
+    const enCache = pendientes.filter((x) => audioDelCache(x.texto)).length;
+    console.log(`De esos, ${enCache} ya están en el caché (se copian al instante).`);
     return;
   }
 
-  // Saltar lo que ya está clonado (y cuyo archivo exista), salvo --rehacer.
-  const pendientes = lista.filter((x) => {
-    const archivo = path.join(OUT_DIR, nombreArchivo(x.texto, x.prefijo));
-    if (!fs.existsSync(archivo)) return true;      // falta el archivo
-    if (RECHACER) return true;                     // forzamos rehacer
-    return !manifiesto.has(x.texto);               // existe pero no consta como clonado
-  });
+  // ¿El clon responde? (solo hace falta si hay algo que clonar)
+  const faltanSinCache = pendientes.filter((x) => !audioDelCache(x.texto)).length;
+  if (faltanSinCache > 0) {
+    let disponible = false;
+    try {
+      const r = await fetch(`${CLON}/salud`, { signal: AbortSignal.timeout(8000) });
+      disponible = r.ok;
+    } catch { /* noop */ }
+    if (!disponible) {
+      console.error(`\n[ERROR] El clon no responde en ${CLON}`);
+      console.error('Arranca el servicio con:  server\\voz-clon\\iniciar-voz-clon.bat');
+      console.error('(La primera vez carga el modelo ~1-2 minutos y puede tardar.)');
+      process.exit(1);
+    }
+  }
 
   console.log(`Textos a gestionar: ${lista.length}`);
   console.log(`Ya clonado y en su sitio: ${lista.length - pendientes.length}`);
-  console.log(`Pendientes: ${pendientes.length}${RECHACER ? '  (modo --rehacer)' : ''}\n`);
+  console.log(`Pendientes: ${pendientes.length}${RECHACER ? '  (modo --rehacer)' : ''}`);
+  console.log(`  de esos, desde caché: ${pendientes.length - faltanSinCache}, a clonar: ${faltanSinCache}\n`);
 
   let hechos = 0, desdeCache = 0, fallos = 0;
   const inicio = Date.now();
@@ -270,14 +348,13 @@ async function main() {
     }
 
     fs.writeFileSync(destino, buffer);
-    mapa[texto] = `/audio/${nombreArchivo(texto, prefijo)}`;
     manifiesto.add(texto);
     hechos++;
 
     // Guardar manifiesto y mapa cada 10 (respaldo si se corta)
     if (hechos % 10 === 0) {
       guardarManifiesto(manifiesto);
-      escribirMapa(mapa);
+      escribirMapa(construirMapa(lista, mapaViejo));
     }
 
     const mins = ((Date.now() - inicio) / 60000).toFixed(1);
@@ -286,24 +363,21 @@ async function main() {
   }
 
   guardarManifiesto(manifiesto);
+  const mapa = construirMapa(lista, mapaViejo);
   escribirMapa(mapa);
+  const borrados = limpiarHuerfanos(mapa);
 
   console.log(`\nListo. ${hechos} audios escritos (${desdeCache} reutilizados del caché).`);
   console.log(`Fallos: ${fallos}`);
   console.log(`Mapa AUDIO_FIJO con ${Object.keys(mapa).length} textos.`);
+  if (borrados) console.log(`Archivos huérfanos borrados: ${borrados}`);
 }
 
-function escribirMapa(mapa) {
-  const ordenado = {};
-  for (const k of Object.keys(mapa).sort()) ordenado[k] = mapa[k];
-  fs.writeFileSync(
-    MAPA,
-    '// Generado por npm run voz:clon (voz CLONADA de Léo). No editar a mano.\n' +
-      `export const AUDIO_FIJO: Record<string, string> = ${JSON.stringify(ordenado, null, 2)};\n`
-  );
+if (require.main === module) {
+  main().catch((e) => {
+    console.error('Error:', e.message);
+    process.exit(1);
+  });
 }
 
-main().catch((e) => {
-  console.error('Error:', e.message);
-  process.exit(1);
-});
+module.exports = { recolectarTextos, nombreArchivo, textoHablado, canonicoDe };

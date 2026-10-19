@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { fraseFormaPalabra } from '../data/frasesVoz';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
@@ -19,6 +20,16 @@ export default function FormarPalabra({
   const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
   const [silabasUsadas, setSilabasUsadas] = useState<string[]>([]);
 
+  const escuchar = () => {
+    hablarSecuencia([fraseFormaPalabra(objetivo)]);
+  };
+
+  useEffect(() => {
+    // Al entrar, Léo dice qué palabra formar.
+    hablarSecuencia([fraseFormaPalabra(objetivo)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objetivo]);
+
   const agregarSilaba = (silaba: string) => {
     if (resultado || formada.length >= objetivo.length) return;
     const siguiente = formada + silaba;
@@ -32,12 +43,14 @@ export default function FormarPalabra({
     }
     setFormada(siguiente);
     setSilabasUsadas([...silabasUsadas, silaba]);
-    speak(silaba);
     if (siguiente === objetivo) {
       setResultado('correcto');
-      speak(F_BIEN_LECTURA);
+      // Primero la palabra completa, luego el elogio: sin cortar sonidos.
+      hablarSecuencia([objetivo, F_BIEN_LECTURA]);
       onCorrecto();
+      return;
     }
+    speak(silaba);
   };
 
   const borrar = () => {
@@ -63,6 +76,13 @@ export default function FormarPalabra({
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 0.5rem' }}>
         Forma: {objetivo}
       </p>
+      <button
+        className="listen-btn"
+        onClick={escuchar}
+        style={{ marginBottom: '0.8rem', minHeight: '48px' }}
+      >
+        🔊 Escuchar
+      </button>
       <div style={{ fontSize: '3rem', fontWeight: '900', color: '#764ba2', margin: '1rem 0', minHeight: '3rem' }}>
         {formada || '—'}
       </div>
@@ -71,7 +91,7 @@ export default function FormarPalabra({
           <button
             key={s}
             onClick={() => agregarSilaba(s)}
-            disabled={resultado || formada.length >= objetivo.length || isSpeaking}
+            disabled={resultado || formada.length >= objetivo.length}
             className="letter-btn"
             style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
           >
@@ -82,7 +102,7 @@ export default function FormarPalabra({
       <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
         <button
           onClick={borrar}
-          disabled={silabasUsadas.length === 0 || resultado || isSpeaking}
+          disabled={silabasUsadas.length === 0 || resultado}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
@@ -90,7 +110,7 @@ export default function FormarPalabra({
         </button>
         <button
           onClick={reiniciar}
-          disabled={resultado || isSpeaking}
+          disabled={resultado}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >

@@ -1,12 +1,12 @@
 import { useState, useCallback } from 'react';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
-import { FRASES_VOZ } from '../data/frasesVoz';
+import { fraseImagen } from '../data/frasesVoz';
 
 interface OpcionImagen {
   id: string;
   emoji: string;
   texto: string;
-  audioTexto: string;
+  nombre: string;
 }
 
 interface Props {
@@ -19,25 +19,25 @@ interface Props {
 }
 
 const OPCIONES_3_5: OpcionImagen[] = [
-  { id: 'casa', emoji: '🏠', texto: 'CASA', audioTexto: 'casa' },
-  { id: 'sol', emoji: '☀️', texto: 'SOL', audioTexto: 'sol' },
-  { id: 'luna', emoji: '🌙', texto: 'LUNA', audioTexto: 'luna' },
-  { id: 'perro', emoji: '🐶', texto: 'PERRO', audioTexto: 'perro' },
-  { id: 'gato', emoji: '🐱', texto: 'GATO', audioTexto: 'gato' },
-  { id: 'papa', emoji: '👨', texto: 'PAPA', audioTexto: 'papa' },
-  { id: 'mama', emoji: '👩', texto: 'MAMA', audioTexto: 'mama' },
-  { id: 'pera', emoji: '🍐', texto: 'PERA', audioTexto: 'pera' },
+  { id: 'casa', emoji: '🏠', texto: 'CASA', nombre: 'la casa' },
+  { id: 'sol', emoji: '☀️', texto: 'SOL', nombre: 'el sol' },
+  { id: 'luna', emoji: '🌙', texto: 'LUNA', nombre: 'la luna' },
+  { id: 'perro', emoji: '🐶', texto: 'PERRO', nombre: 'el perro' },
+  { id: 'gato', emoji: '🐱', texto: 'GATO', nombre: 'el gato' },
+  { id: 'papa', emoji: '👨', texto: 'PAPÁ', nombre: 'el papá' },
+  { id: 'mama', emoji: '👩', texto: 'MAMÁ', nombre: 'la mamá' },
+  { id: 'pera', emoji: '🍐', texto: 'PERA', nombre: 'la pera' },
 ];
 
 const OPCIONES_6_8: OpcionImagen[] = [
-  { id: 'elefante', emoji: '🐘', texto: 'ELEFANTE', audioTexto: 'elefante' },
-  { id: 'mariposa', emoji: '🦋', texto: 'MARIPOSA', audioTexto: 'mariposa' },
-  { id: 'telefono', emoji: '📞', texto: 'TELÉFONO', audioTexto: 'telefono' },
-  { id: 'computadora', emoji: '💻', texto: 'COMPUTADORA', audioTexto: 'computadora' },
-  { id: 'escuela', emoji: '🏫', texto: 'ESCUELA', audioTexto: 'escuela' },
-  { id: 'hospital', emoji: '🏥', texto: 'HOSPITAL', audioTexto: 'hospital' },
-  { id: 'biblioteca', emoji: '📚', texto: 'BIBLIOTECA', audioTexto: 'biblioteca' },
-  { id: 'playa', emoji: '🏖️', texto: 'PLAYA', audioTexto: 'playa' },
+  { id: 'elefante', emoji: '🐘', texto: 'ELEFANTE', nombre: 'el elefante' },
+  { id: 'mariposa', emoji: '🦋', texto: 'MARIPOSA', nombre: 'la mariposa' },
+  { id: 'telefono', emoji: '📞', texto: 'TELÉFONO', nombre: 'el teléfono' },
+  { id: 'computadora', emoji: '💻', texto: 'COMPUTADORA', nombre: 'la computadora' },
+  { id: 'escuela', emoji: '🏫', texto: 'ESCUELA', nombre: 'la escuela' },
+  { id: 'hospital', emoji: '🏥', texto: 'HOSPITAL', nombre: 'el hospital' },
+  { id: 'biblioteca', emoji: '📚', texto: 'BIBLIOTECA', nombre: 'la biblioteca' },
+  { id: 'playa', emoji: '🏖️', texto: 'PLAYA', nombre: 'la playa' },
 ];
 
 export default function EscuchaYElige({
@@ -48,13 +48,20 @@ export default function EscuchaYElige({
   const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
   const [objetivoActual, setObjetivoActual] = useState<OpcionImagen | null>(null);
   const [escuchando, setEscuchando] = useState(false);
+  const [escuchado, setEscuchado] = useState(false);
 
   const todasLasOpciones = rango === '3-5' ? OPCIONES_3_5 : OPCIONES_6_8;
+
+  const hablarObjetivo = useCallback(async (objetivo: OpcionImagen) => {
+    // Dice exactamente qué imagen tocar: "Toca la imagen de la casa."
+    await hablarSecuencia([fraseImagen(objetivo.nombre)]);
+  }, [hablarSecuencia]);
 
   const iniciarRonda = useCallback(async () => {
     if (isSpeaking) return;
     setSeleccionada(null);
     setResultado(null);
+    setEscuchado(false);
     setEscuchando(true);
 
     const mezcladas = [...todasLasOpciones].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -63,12 +70,18 @@ export default function EscuchaYElige({
     const objetivo = mezcladas[Math.floor(Math.random() * mezcladas.length)];
     setObjetivoActual(objetivo);
 
-    await hablarSecuencia([FRASES_VOZ.escuchaYElige]);
+    await hablarObjetivo(objetivo);
     setEscuchando(false);
-  }, [hablarSecuencia, isSpeaking, todasLasOpciones]);
+    setEscuchado(true);
+  }, [hablarObjetivo, isSpeaking, todasLasOpciones]);
+
+  const repetir = () => {
+    if (!objetivoActual || escuchando || resultado) return;
+    hablarObjetivo(objetivoActual);
+  };
 
   const elegir = (opcion: OpcionImagen) => {
-    if (resultado || !objetivoActual) return;
+    if (resultado || !objetivoActual || escuchando) return;
     setSeleccionada(opcion.id);
 
     if (opcion.id === objetivoActual.id) {
@@ -82,19 +95,19 @@ export default function EscuchaYElige({
     }
   };
 
-  // following: tras acertar o fallar se ofrece siempre seguir jugando.
   const siguienteRonda = () => {
     setResultado(null);
     setSeleccionada(null);
     setObjetivoActual(null);
     setOpciones([]);
+    setEscuchado(false);
     iniciarRonda();
   };
 
   return (
     <div className="escucha-elige" style={{ textAlign: 'center', padding: '1rem' }}>
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 1rem' }}>
-        {resultado ? (resultado === 'correcto' ? '¡Correcto!' : 'Intenta otra vez') : escuchando ? 'Escucha a Léo…' : 'Toca 🔊 para empezar'}
+        {resultado ? (resultado === 'correcto' ? '¡Correcto!' : 'Intenta otra vez') : escuchando ? 'Escucha a Léo…' : escuchado ? 'Toca la imagen que dijo Léo' : 'Toca 🔊 para empezar'}
       </p>
 
       <button
@@ -106,6 +119,17 @@ export default function EscuchaYElige({
         {escuchando ? '🦉 Escuchando…' : isSpeaking ? '💛 Léo habla…' : '🔊 Escuchar'}
       </button>
 
+      {objetivoActual && !resultado && (
+        <button
+          className="ghost-btn"
+          onClick={repetir}
+          disabled={escuchando}
+          style={{ marginLeft: '0.6rem', minHeight: '48px' }}
+        >
+          🔁 Repetir
+        </button>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
         {opciones.map((op) => {
           const estáSeleccionada = seleccionada === op.id;
@@ -115,7 +139,7 @@ export default function EscuchaYElige({
             <button
               key={op.id}
               onClick={() => elegir(op)}
-              disabled={isSpeaking || (escuchando ? resultado === 'correcto' : false)}
+              disabled={!escuchado || escuchando}
               className={`letter-btn ${estáSeleccionada ? (estáCorrecta ? 'selected' : estáIncorrecta ? 'wrong' : '') : ''}`}
               style={{
                 width: '100%',

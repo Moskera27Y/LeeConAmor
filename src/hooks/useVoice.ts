@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOZ_UNICA, getVoz, setVoz } from '../data/voces';
 import { AUDIO_FIJO } from '../data/audioFijo';
+import { textoHablado } from '../data/textoVoz';
 
 export type MotivoVoz = null | 'apagado' | 'key' | 'cuota' | 'otro';
 
@@ -220,7 +221,9 @@ export function useVoice(enabled: boolean) {
       if (!enabled || muted) return;
       const turno = turnoRef.current + 1;
       turnoRef.current = turno;
-      const corto = texto.length > 160 ? texto.slice(0, 160) : texto;
+      // El clon no pronuncia emojis: se limpian para que la clave coincida
+      // con la generada por `npm run voz:clon`.
+      const corto = textoHablado(texto).slice(0, 160);
       lastText.current = corto;
       const voz = VOZ_UNICA;
       const url = await resolverAudio(corto, voz, turno);
@@ -249,7 +252,7 @@ export function useVoice(enabled: boolean) {
       const voz = VOZ_UNICA;
       for (const t of textos) {
         if (turno !== turnoRef.current) return false;
-        const corto = t.length > 160 ? t.slice(0, 160) : t;
+        const corto = textoHablado(t).slice(0, 160);
         lastText.current = corto;
         const url = await resolverAudio(corto, voz, turno);
         if (turno !== turnoRef.current || !url) {

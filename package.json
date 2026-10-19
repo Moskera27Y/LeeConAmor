@@ -12,7 +12,8 @@
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test:trazo": "node server/test-trazo.cjs",
-    "test": "node server/test-trazo.cjs",
+    "test:voz": "node server/test-voz.cjs",
+    "test": "node server/test-trazo.cjs && node server/test-voz.cjs --sin-audio",
     "verify": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

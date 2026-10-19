@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useReadingLesson } from '../hooks/useReadingLesson';
-import { F_BIEN_LECTURA, F_BUEN_ESFUERZO, F_BUEN_INTENTO, F_ESCUCHA_LEE, F_NO_ESCUCHE, animarNombre, comboLectura, corregirNombre, ejemploGuia, felicitarNombre } from '../data/frases';
+import { F_BIEN_LECTURA, F_BUEN_ESFUERZO, F_BUEN_INTENTO, F_ESCUCHA_LEE, F_NO_ESCUCHE, animarNombre, corregirNombre, felicitarNombre } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -34,8 +34,9 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
   const escuchar = async () => {
     if (bloqueado) return;
     setOcupado(true);
-    setFase('Escucha el ejemplo…');
-    await hablarSecuencia(ejemploGuia(objetivo, pista));
+    setFase('Escucha la letra…');
+    // Solo lee la letra/palabra: claro y sin frases confusas.
+    await hablarSecuencia([objetivo]);
     setOcupado(false);
     setFase('');
   };

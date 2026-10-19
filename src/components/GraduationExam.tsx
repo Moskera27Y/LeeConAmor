@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ABECEDARIO, VOCALES } from '../data/motorNiveles';
-import { FRASES_VOZ } from '../data/frasesVoz';
-import { F_GRADUACION } from '../data/frases';
+import { fraseToca } from '../data/frasesVoz';
+import { F_BUEN_INTENTO_EXAMEN, F_GRADUACION } from '../data/frases';
 
 interface Props {
   speak: (t: string) => void;
@@ -29,8 +29,8 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
   }
 
   const preguntar = () => {
-    speak(FRASES_VOZ.examen);
-    speak(preguntas[idx]);
+    // Una sola frase clara: "Toca la vocal A." o "Toca la letra M."
+    speak(fraseToca(preguntas[idx]));
   };
 
   const elegir = (l: string) => {
@@ -46,7 +46,7 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
           speak(F_GRADUACION);
           onAprobar();
         } else {
-          speak('Buen intento. Sigue practicando y lo intentamos de nuevo.');
+          speak(F_BUEN_INTENTO_EXAMEN);
         }
       } else {
         setAciertos(n);

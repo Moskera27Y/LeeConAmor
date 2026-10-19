@@ -1,21 +1,42 @@
-﻿import { useState, useCallback, type MouseEvent, type TouchEvent } from 'react';
-import { LETRAS_TRACO, MENSAJES_TRAZO, validarTrazo, type LetraTrazo } from '../lib/trazo';
+﻿import { useState, useCallback, useMemo, type MouseEvent, type TouchEvent } from 'react';
+import { LETRAS_TRACO, MENSAJES_TRAZO, muestrearTrazo, validarTrazo, type LetraTrazo } from '../lib/trazo';
+import { FRASES_VOZ } from '../data/frasesVoz';
 import { F_BIEN_LECTURA } from '../data/frases';
+
 interface Props {
   speak: (t: string) => void;
+  hablarSecuencia: (t: string[]) => Promise<boolean>;
   onCorrecto: () => void;
   onError: () => void;
   isSpeaking: boolean;
 }
 
+type Punto = { x: number; y: number };
+
+// Píxeles del lienzo -> espacio 0-100 de la letra (igual que el SVG con
+// preserveAspectRatio="xMidYMid meet": cuadrado centrado con letterboxing).
+function aEspacioLetra(clientX: number, clientY: number, rect: DOMRect): Punto {
+  const escala = Math.min(rect.width / 100, rect.height / 100);
+  const margenX = (rect.width - 100 * escala) / 2;
+  const margenY = (rect.height - 100 * escala) / 2;
+  return {
+    x: (clientX - rect.left - margenX) / escala,
+    y: (clientY - rect.top - margenY) / escala,
+  };
+}
+
 export default function TrazoLetra({
-  speak, onCorrecto, onError, isSpeaking,
+  speak, hablarSecuencia, onCorrecto, onError, isSpeaking,
 }: Props) {
   const [actual, setActual] = useState<LetraTrazo | null>(null);
-  const [puntos, setPuntos] = useState<{ x: number; y: number }[]>([]);
+  const [puntos, setPuntos] = useState<Punto[]>([]);
   const [completado, setCompletado] = useState(false);
   const [intentos, setIntentos] = useState(0);
   const [aviso, setAviso] = useState('');
+
+  // Misma trayectoria para dibujar la letra, los puntitos y validar.
+  const trayectoria = useMemo(() => (actual ? muestrearTrazo(actual.d, 4) : []), [actual]);
+  const inicio = trayectoria[0];
 
   const iniciar = useCallback(() => {
     const letra = LETRAS_TRACO[Math.floor(Math.random() * LETRAS_TRACO.length)];
@@ -24,41 +45,34 @@ export default function TrazoLetra({
     setCompletado(false);
     setIntentos(0);
     setAviso('');
-  }, []);
+    hablarSecuencia([FRASES_VOZ.trazo]);
+  }, [hablarSecuencia]);
 
   const manejarInicio = useCallback((e: TouchEvent | MouseEvent) => {
     if (!actual || completado) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const t = e.touches;
-    const clientX = t ? t[0].clientX : e.clientX;
-    const clientY = t ? t[0].clientY : e.clientY;
-    setPuntos([{ x: clientX - rect.left, y: clientY - rect.top }]);
+    const t = 'touches' in e ? e.touches : null;
+    const clientX = t ? t[0].clientX : (e as MouseEvent).clientX;
+    const clientY = t ? t[0].clientY : (e as MouseEvent).clientY;
+    setPuntos([aEspacioLetra(clientX, clientY, rect)]);
   }, [actual, completado]);
 
   const manejarMover = useCallback((e: TouchEvent | MouseEvent) => {
     if (!actual || completado || puntos.length === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const t = e.touches;
-    const clientX = t ? t[0].clientX : e.clientX;
-    const clientY = t ? t[0].clientY : e.clientY;
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    // Ignora el ruido del dedo (micro-movimientos)
+    const t = 'touches' in e ? e.touches : null;
+    const clientX = t ? t[0].clientX : (e as MouseEvent).clientX;
+    const clientY = t ? t[0].clientY : (e as MouseEvent).clientY;
+    const p = aEspacioLetra(clientX, clientY, rect);
     const ultimo = puntos[puntos.length - 1];
-    if (Math.hypot(x - ultimo.x, y - ultimo.y) < 2) return;
-    setPuntos((prev) => [...prev, { x, y }]);
+    if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 1) return;
+    setPuntos((prev) => [...prev, p]);
   }, [actual, completado, puntos]);
 
   const manejarFin = useCallback(() => {
     if (!actual || completado) return;
 
-    // El mismo nodo que dibuja nos da el tamaño real del lienzo.
-    const caja = document.getElementById('lienzo-trazo');
-    const ancho = caja?.clientWidth || 300;
-    const alto = caja?.clientHeight || 200;
-
-    const r = validarTrazo(puntos, ancho, alto, actual.guias);
-
+    const r = validarTrazo(puntos, actual.d);
     if (r.ok) {
       setCompletado(true);
       setAviso('');
@@ -89,27 +103,6 @@ export default function TrazoLetra({
 
       {actual && (
         <>
-          <div style={{ fontSize: '3.6rem', fontWeight: '900', color: '#333', lineHeight: 1 }}>
-            {actual.letra}
-          </div>
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'relative',
-              margin: '.4rem auto .8rem',
-              width: '110px',
-              height: '130px',
-              color: '#c9bfe0',
-              fontSize: '6.5rem',
-              lineHeight: '130px',
-              fontWeight: '900',
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-          >
-            {actual.letra}
-          </div>
-
           <p style={{ fontSize: '1.15rem', fontWeight: '800', color: '#333', margin: '0 0 .2rem' }}>
             Traza la letra {actual.letra} con tu dedo
           </p>
@@ -125,63 +118,69 @@ export default function TrazoLetra({
             onMouseDown={manejarInicio}
             onMouseMove={(e) => { if (e.buttons === 1) manejarMover(e); }}
             onMouseUp={manejarFin}
-            onMouseLeave={(e) => { if (e.buttons === 1) manejarFin(e); }}
+            onMouseLeave={(e) => { if (e.buttons === 1) manejarFin(); }}
             style={{
-              width: '100%',
-              height: '220px',
+              width: 'min(88vw, 340px)',
+              aspectRatio: '1 / 1',
+              margin: '0 auto',
               border: '3px dashed #ddd2f0',
               borderRadius: '20px',
               position: 'relative',
               background: '#fbf9ff',
               cursor: 'crosshair',
               touchAction: 'none',
+              overflow: 'hidden',
             }}
           >
-            {/* Puntos guía para que el niño sepa por dónde empezar */}
-            {actual.guias.map(([gx, gy], i) => (
-              <span
-                key={i}
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  left: `${gx}%`,
-                  top: `${gy}%`,
-                  width: 14,
-                  height: 14,
-                  marginLeft: -7,
-                  marginTop: -7,
-                  borderRadius: '50%',
-                  background: '#e6dcff',
-                  pointerEvents: 'none',
-                }}
+            <svg
+              viewBox="0 0 100 100"
+              preserveAspectRatio="xMidYMid meet"
+              aria-hidden="true"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+            >
+              {/* La letra: misma trayectoria que valida el trazo */}
+              <path
+                d={actual.d}
+                fill="none"
+                stroke="#e6dcff"
+                strokeWidth={8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
-            ))}
-
-            {puntos.length > 1 && (
-              <svg
-                aria-hidden="true"
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-              >
+              {/* Puntitos guía sobre la misma letra */}
+              {trayectoria.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={1.6} fill="#c9b7ea" />
+              ))}
+              {/* Círculo verde de inicio */}
+              {inicio && (
+                <>
+                  <circle cx={inicio.x} cy={inicio.y} r={5.5} fill="#7ed957" opacity={0.35} className="trazo-inicio-pulso" />
+                  <circle cx={inicio.x} cy={inicio.y} r={3.4} fill="#39b54a" stroke="#fff" strokeWidth={1.2} />
+                </>
+              )}
+              {/* Trazo del niño */}
+              {puntos.length > 1 && (
                 <polyline
                   points={puntos.map((p) => `${p.x},${p.y}`).join(' ')}
                   fill="none"
                   stroke="#764ba2"
-                  strokeWidth={9}
+                  strokeWidth={7}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   opacity={0.85}
                 />
-              </svg>
-            )}
+              )}
+            </svg>
 
             {puntos.length === 0 && !completado && (
               <div
                 style={{
-                  position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
-                  color: '#a99bc4', fontWeight: '700', fontSize: '.95rem', pointerEvents: 'none',
+                  position: 'absolute', inset: 0, display: 'grid', placeItems: 'end center',
+                  paddingBottom: '0.6rem',
+                  color: '#a99bc4', fontWeight: '700', fontSize: '.9rem', pointerEvents: 'none',
                 }}
               >
-                Empieza por un puntito y sigue el de la letra
+                Empieza en el círculo verde y sigue los puntitos
               </div>
             )}
 

@@ -22,11 +22,13 @@ B
 B con A dicen BA
 B-R-A dicen BRA
 BA
+BEBE
 BEBE empieza con BA
 BIBLIOTECA
 BRA
 BRAZO
 BRAZO empieza con BRA
+Buen intento. Sigue practicando y lo intentamos de nuevo.
 Busca las letras que pide Léo.
 C
 C con A dicen CA
@@ -43,6 +45,7 @@ CRAN empieza con CRA
 D
 D con A dicen DA
 DA
+DADO
 DADO empieza con DA
 DRA
 DRAGÓN
@@ -51,6 +54,7 @@ E con M dicen EM
 E. eee como elefante. Repite conmigo.
 ELEFANTE
 EM
+EME
 EME empieza con EM
 ESCUELA
 El niño juega
@@ -63,14 +67,48 @@ Escucha y toca la letra correcta.
 F
 F con A dicen FA
 FA
+FARO
 FARO empieza con FA
 FRA
 FRASE
+Forma la palabra AMOR.
+Forma la palabra CASA.
+Forma la palabra LUNA.
+Forma la palabra MAMA.
+Forma la palabra PAPA.
+Forma la palabra PERA.
+Forma la palabra SAPO.
+Forma la palabra SOL.
+Forma la palabra SOLAR.
+Forma la palabra SOPA.
+Forma la sílaba AM.
+Forma la sílaba BA.
+Forma la sílaba BRA.
+Forma la sílaba CA.
+Forma la sílaba CLA.
+Forma la sílaba CRA.
+Forma la sílaba DA.
+Forma la sílaba DRA.
+Forma la sílaba EM.
+Forma la sílaba FA.
+Forma la sílaba FRA.
+Forma la sílaba GRA.
+Forma la sílaba IM.
+Forma la sílaba LA.
+Forma la sílaba MA.
+Forma la sílaba OM.
+Forma la sílaba PA.
+Forma la sílaba PRA.
+Forma la sílaba RA.
+Forma la sílaba SA.
+Forma la sílaba TA.
+Forma la sílaba TRA.
 Forma palabras que puedes leer: MAMA, PAPA y PERA. Escucha despacio: pe-eee-ra.
 G
 GATO
 GRA
 GRADO
+H
 HOSPITAL
 Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.
 Hola, soy Léo. Vamos a leer juntitos con amor.
@@ -79,15 +117,20 @@ I con M dicen IM
 I. iii como isla
 I. iii como isla. Repite conmigo.
 IM
+IMÁN
 IMÁN empieza con IM
+J
 Junta las letras para formar MA, PA y LA. Escucha: mmm-aaa dice MA.
 Junta las sílabas que dice Léo.
 Juntamos sonidos: mmm con aaa forman MA. Busca M y A para formar MA.
+K
 L
 L con A dicen LA
 L con A dicen LA, como en luna
 L-U-N-A dice LUNA
 LA
+LAR
+LU
 LUNA
 LUNA empieza con LA
 LUNA empieza con LA. ¿Cuál es la primera sílaba?
@@ -105,6 +148,7 @@ La sílaba TA. T con A dicen TA.
 La última vocal: la U. U dice uuu, como en uva.
 Lee la oración completita y luego dime qué entendiste. Escucha primero a Léo.
 Lu-na, despacio lu-na
+M
 M-A-M-A dice MAMA
 MA
 MA. mmm con aaa, MA. Repite conmigo.
@@ -113,13 +157,17 @@ MAMA empieza con MA
 MAMA empieza con MA. ¿Cuál es la primera sílaba?
 MAMA. ma-ma, despacio ma-ma. Repite conmigo.
 MARIPOSA
+MOR
 Mamá me ama
+N
+NA
 No te oí bien. Probemos otra vez con amor.
 No te pude escuchar bien. Probemos otra vez con amor.
 O
 O con M dicen OM
 O. ooo como oso. Repite conmigo.
 OM
+OMAR
 OMAR empieza con OM
 P
 P con A dicen PA
@@ -131,29 +179,35 @@ PAPA
 PAPA empieza con PA
 PAPA empieza con PA. ¿Cuál es la primera sílaba?
 PAPA. pa-pa, despacio pa-pa. Repite conmigo.
+PE
 PERA
 PERA. pe-ra, despacio pe-ra. Repite conmigo.
 PERRO
 PLAYA
+PO
 PRA
 PRADO
 PRADO empieza con PRA
 Pe-ra, despacio pe-ra
 Pon las letras en orden para formar la sílaba.
 Pon las sílabas en orden.
+Q
 R
 R con A dicen RA
 R suave con A dicen RA
 RA
+RATA
 RATA empieza con RA
 Repasemos juntitos las letras.
 Repasemos las cinco vocales: A, E, I, O, U.
+S
 S con A dicen SA
 S con A dicen SA, como en serpiente
 S-A dice SA
 S-O-L dice SOL
 SA
 SAPO
+SO
 SOL
 SOL empieza con SO
 SOL. sol, sss-ooo-lll. Repite conmigo.
@@ -167,6 +221,7 @@ T con A dicen TA, como en tambor
 T-A dice TA
 T-R-A dicen TRA
 TA
+TARDE
 TARDE empieza con TA
 TELÉFONO
 TRA
@@ -174,8 +229,77 @@ TRAN
 TRAN empieza con TRA
 Te escucho. Lee en voz alta.
 Toca cada letra con el dedo.
+Toca cada palabra con el dedo.
 Toca el puntito y sigue la letra con el dedo.
+Toca la imagen de la biblioteca.
+Toca la imagen de la casa.
+Toca la imagen de la computadora.
+Toca la imagen de la escuela.
+Toca la imagen de la luna.
+Toca la imagen de la mamá.
+Toca la imagen de la mariposa.
+Toca la imagen de la pera.
+Toca la imagen de la playa.
+Toca la imagen del elefante.
+Toca la imagen del gato.
+Toca la imagen del hospital.
+Toca la imagen del papá.
+Toca la imagen del perro.
+Toca la imagen del sol.
+Toca la imagen del teléfono.
+Toca la letra B.
+Toca la letra C.
+Toca la letra D.
+Toca la letra F.
+Toca la letra G.
+Toca la letra H.
+Toca la letra J.
+Toca la letra K.
+Toca la letra L.
+Toca la letra M.
+Toca la letra N.
+Toca la letra P.
+Toca la letra Q.
+Toca la letra R.
+Toca la letra S.
+Toca la letra T.
+Toca la letra V.
+Toca la letra W.
+Toca la letra X.
+Toca la letra Y.
+Toca la letra Z.
+Toca la letra Ñ.
+Toca la palabra AMOR.
+Toca la palabra LUNA.
+Toca la palabra MAMA.
+Toca la palabra PAPA.
+Toca la palabra PERA.
+Toca la palabra SOL.
+Toca la palabra SOLAR.
 Toca la primera sílaba.
+Toca la sílaba AM.
+Toca la sílaba BA.
+Toca la sílaba BRA.
+Toca la sílaba CA.
+Toca la sílaba CRA.
+Toca la sílaba DA.
+Toca la sílaba EM.
+Toca la sílaba FA.
+Toca la sílaba IM.
+Toca la sílaba LA.
+Toca la sílaba MA.
+Toca la sílaba OM.
+Toca la sílaba PA.
+Toca la sílaba PRA.
+Toca la sílaba RA.
+Toca la sílaba SA.
+Toca la sílaba TA.
+Toca la sílaba TRA.
+Toca la vocal A.
+Toca la vocal E.
+Toca la vocal I.
+Toca la vocal O.
+Toca la vocal U.
 Toca la vocal correcta.
 Tú puedes, Aarón. Escucha otra vez e inténtalo.
 Tú puedes, Adrián. Escucha otra vez e inténtalo.
@@ -219,6 +343,7 @@ Tú puedes, Victoria. Escucha otra vez e inténtalo.
 Tú puedes, Ximena. Escucha otra vez e inténtalo.
 U
 U. uuu como uva
+V
 Vamos a escuchar sonidos: mmm como mamá y sss como serpiente. Toca la letra del sonido.
 Vamos a formar la sílaba MA. M con A dicen MA.
 Vamos a leer la palabra MAMA. Ma-ma, despacio ma-ma.
@@ -230,10 +355,16 @@ Vamos con IM y OM.
 Vamos con RA y FA.
 Vamos con TA y DA.
 Vamos con las sílabas MA y PA.
+W
+X
+Y
+Z
 aaa como manzana
 aaa con mmm, AM
 bbb con aaa, BA
 bbb rrr aaa, BRA
+bonita...
+casa
 ce con aaa, CA
 ce rrr aaa, CRA
 cuento_corto
@@ -247,6 +378,7 @@ lll con aaa, LA
 lu-na, despacio lu-na
 ma-ma, despacio ma-ma
 mmm con aaa, MA
+muy
 ooo como oso
 ooo con mmm, OM
 pa-pa, despacio pa-pa
@@ -258,10 +390,13 @@ sss con aaa, SA
 sss-ooo-lll
 ttt con aaa, TA
 ttt rrr aaa, TRA
+una
 uuu como uva
+vez
 ¡Armaste sílabas muy bien!
 ¡Buen esfuerzo! Vamos juntitos despacio.
 ¡Buen intento! Una vez más.
+¡Casi! Prueba otra vez con amor
 ¡Casi! Prueba otra vez con amor ❤️
 ¡Casi, Aarón! Vamos juntitos, despacio.
 ¡Casi, Adrián! Vamos juntitos, despacio.
@@ -303,18 +438,24 @@ uuu como uva
 ¡Casi, Valentina! Vamos juntitos, despacio.
 ¡Casi, Victoria! Vamos juntitos, despacio.
 ¡Casi, Ximena! Vamos juntitos, despacio.
+¡Dominas el abecedario!
 ¡Escuchaste muy bien las vocales!
+¡Felicidades! Terminaste todo. Ahora lees por tu cuenta.
 ¡Felicidades! Terminaste todo. Ahora lees por tu cuenta. 🎉
 ¡Felicidades! Vas a leer un cuento completo.
+¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector.
 ¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector. 🎓
 ¡Felicidades! Ya sabes leer oraciones enteras. Eres un gran lector.
 ¡Formaste sílabas muy bien!
+¡Formaste sílabas!
 ¡Formaste tu primera sílaba!
+¡Genial!
 ¡Genial! La palabra SOL la leíste.
 ¡Genial! La sílaba SA la tienes.
 ¡Genial! La vocal I la tienes.
 ¡Genial! RA y FA las sabes.
 ¡Genial! ⭐
+¡Hermoso!
 ¡Hermoso! 💛
 ¡Hola! Vamos a aprender la vocal A. A dice aaa, como en manzana.
 ¡Hola! Vamos a leer juntitos.
@@ -358,60 +499,111 @@ uuu como uva
 ¡Hola, Valentina! Vamos a leer juntitos.
 ¡Hola, Victoria! Vamos a leer juntitos.
 ¡Hola, Ximena! Vamos a leer juntitos.
+¡Increíble! Subiste de etapa. Vamos por más.
 ¡Increíble! Subiste de etapa. Vamos por más. 🎉
 ¡Increíble! Ya conoces las cinco vocales.
 ¡Increíble! Ya lees oraciones enteras.
 ¡Increíble! Ya lees palabras de verdad.
+¡Insignia nueva: Cinco aciertos!
+¡Insignia nueva: Diez aciertos!
+¡Insignia nueva: Graduado!
+¡Insignia nueva: Primera oración!
+¡Insignia nueva: Primera palabra!
+¡Insignia nueva: Primera sílaba!
+¡Insignia nueva: Racha de 3 días!
+¡Insignia nueva: Racha de 5 días!
 ¡Las sílabas inversas las tienes!
 ¡Las sílabas trabadas las dominas!
 ¡Lees oraciones completas! Eres un gran lector.
 ¡Lees oraciones enteras!
 ¡Leíste palabras de verdad!
 ¡Leíste tu primera palabra!
+¡Muy bien con las vocales!
+¡Muy bien!
 ¡Muy bien! Aprendiste la vocal A.
 ¡Muy bien! Dominas las vocales.
 ¡Muy bien! IM y OM las dominas.
 ¡Muy bien! La sílaba TA la aprendiste.
 ¡Muy bien! 🎉
+¡Muy bien, Aarón! ¡Qué bien leíste!
 ¡Muy bien, Aarón! ¡Qué bien leíste! 🌟
+¡Muy bien, Adrián! ¡Qué bien leíste!
 ¡Muy bien, Adrián! ¡Qué bien leíste! 🌟
+¡Muy bien, Aitana! ¡Qué bien leíste!
 ¡Muy bien, Aitana! ¡Qué bien leíste! 🌟
+¡Muy bien, Antonella! ¡Qué bien leíste!
 ¡Muy bien, Antonella! ¡Qué bien leíste! 🌟
+¡Muy bien, Antonia! ¡Qué bien leíste!
 ¡Muy bien, Antonia! ¡Qué bien leíste! 🌟
+¡Muy bien, Benjamín! ¡Qué bien leíste!
 ¡Muy bien, Benjamín! ¡Qué bien leíste! 🌟
+¡Muy bien, Bruno! ¡Qué bien leíste!
 ¡Muy bien, Bruno! ¡Qué bien leíste! 🌟
+¡Muy bien, Camila! ¡Qué bien leíste!
 ¡Muy bien, Camila! ¡Qué bien leíste! 🌟
+¡Muy bien, Daniel! ¡Qué bien leíste!
 ¡Muy bien, Daniel! ¡Qué bien leíste! 🌟
+¡Muy bien, Daniela! ¡Qué bien leíste!
 ¡Muy bien, Daniela! ¡Qué bien leíste! 🌟
+¡Muy bien, Dante! ¡Qué bien leíste!
 ¡Muy bien, Dante! ¡Qué bien leíste! 🌟
+¡Muy bien, Diego! ¡Qué bien leíste!
 ¡Muy bien, Diego! ¡Qué bien leíste! 🌟
+¡Muy bien, Dylan! ¡Qué bien leíste!
 ¡Muy bien, Dylan! ¡Qué bien leíste! 🌟
+¡Muy bien, Emilia! ¡Qué bien leíste!
 ¡Muy bien, Emilia! ¡Qué bien leíste! 🌟
+¡Muy bien, Emiliano! ¡Qué bien leíste!
 ¡Muy bien, Emiliano! ¡Qué bien leíste! 🌟
+¡Muy bien, Emma! ¡Qué bien leíste!
 ¡Muy bien, Emma! ¡Qué bien leíste! 🌟
+¡Muy bien, Facundo! ¡Qué bien leíste!
 ¡Muy bien, Facundo! ¡Qué bien leíste! 🌟
+¡Muy bien, Florencia! ¡Qué bien leíste!
 ¡Muy bien, Florencia! ¡Qué bien leíste! 🌟
+¡Muy bien, Gabriel! ¡Qué bien leíste!
 ¡Muy bien, Gabriel! ¡Qué bien leíste! 🌟
+¡Muy bien, Gael! ¡Qué bien leíste!
 ¡Muy bien, Gael! ¡Qué bien leíste! 🌟
+¡Muy bien, Isabella! ¡Qué bien leíste!
 ¡Muy bien, Isabella! ¡Qué bien leíste! 🌟
+¡Muy bien, Liam! ¡Qué bien leíste!
 ¡Muy bien, Liam! ¡Qué bien leíste! 🌟
+¡Muy bien, Lucas! ¡Qué bien leíste!
 ¡Muy bien, Lucas! ¡Qué bien leíste! 🌟
+¡Muy bien, Luciana! ¡Qué bien leíste!
 ¡Muy bien, Luciana! ¡Qué bien leíste! 🌟
+¡Muy bien, Lucía! ¡Qué bien leíste!
 ¡Muy bien, Lucía! ¡Qué bien leíste! 🌟
+¡Muy bien, Martina! ¡Qué bien leíste!
 ¡Muy bien, Martina! ¡Qué bien leíste! 🌟
+¡Muy bien, Mateo! ¡Qué bien leíste!
 ¡Muy bien, Mateo! ¡Qué bien leíste! 🌟
+¡Muy bien, Matías! ¡Qué bien leíste!
 ¡Muy bien, Matías! ¡Qué bien leíste! 🌟
+¡Muy bien, Mía! ¡Qué bien leíste!
 ¡Muy bien, Mía! ¡Qué bien leíste! 🌟
+¡Muy bien, Noah! ¡Qué bien leíste!
 ¡Muy bien, Noah! ¡Qué bien leíste! 🌟
+¡Muy bien, Olivia! ¡Qué bien leíste!
 ¡Muy bien, Olivia! ¡Qué bien leíste! 🌟
+¡Muy bien, Regina! ¡Qué bien leíste!
 ¡Muy bien, Regina! ¡Qué bien leíste! 🌟
+¡Muy bien, Santiago! ¡Qué bien leíste!
 ¡Muy bien, Santiago! ¡Qué bien leíste! 🌟
+¡Muy bien, Sebastián! ¡Qué bien leíste!
 ¡Muy bien, Sebastián! ¡Qué bien leíste! 🌟
+¡Muy bien, Sofía! ¡Qué bien leíste!
 ¡Muy bien, Sofía! ¡Qué bien leíste! 🌟
+¡Muy bien, Thiago! ¡Qué bien leíste!
 ¡Muy bien, Thiago! ¡Qué bien leíste! 🌟
+¡Muy bien, Tomás! ¡Qué bien leíste!
 ¡Muy bien, Tomás! ¡Qué bien leíste! 🌟
+¡Muy bien, Valentina! ¡Qué bien leíste!
 ¡Muy bien, Valentina! ¡Qué bien leíste! 🌟
+¡Muy bien, Victoria! ¡Qué bien leíste!
 ¡Muy bien, Victoria! ¡Qué bien leíste! 🌟
+¡Muy bien, Ximena! ¡Qué bien leíste!
 ¡Muy bien, Ximena! ¡Qué bien leíste! 🌟
 ¡Nivel completado!
 ¡Qué bien! La sílaba PA la sabes.
@@ -419,12 +611,35 @@ uuu como uva
 ¡Qué bien! Leíste PAPA.
 ¡Qué bien! TA y DA las tienes.
 ¡Qué bien! Ya sabes la vocal E.
+¡Qué lindo leíste!
 ¡Qué lindo leíste! 🌟
+¡Qué memoria tan linda!
 ¡Qué oído tan lindo!
+¡Súper!
 ¡Súper! BRA y CRA las tienes.
 ¡Súper! CA y BA las dominas.
 ¡Súper! La sílaba LA la dominas.
 ¡Súper! La vocal O la dominas.
 ¡Súper! Leíste PERA.
 ¡Súper! 🌈
+¿Cuál es la primera sílaba de AMOR?
+¿Cuál es la primera sílaba de BARCO?
+¿Cuál es la primera sílaba de BRAZO?
+¿Cuál es la primera sílaba de CASA?
+¿Cuál es la primera sílaba de CRAN?
+¿Cuál es la primera sílaba de DADO?
+¿Cuál es la primera sílaba de EME?
+¿Cuál es la primera sílaba de FARO?
+¿Cuál es la primera sílaba de IMÁN?
+¿Cuál es la primera sílaba de LAGO?
+¿Cuál es la primera sílaba de MAMA?
+¿Cuál es la primera sílaba de OMAR?
+¿Cuál es la primera sílaba de PAPA?
+¿Cuál es la primera sílaba de PRADO?
+¿Cuál es la primera sílaba de RATA?
+¿Cuál es la primera sílaba de SAPO?
+¿Cuál es la primera sílaba de TARDE?
+¿Cuál es la primera sílaba de TRAN?
+Érase
 Érase una vez una casa muy bonita...
+Ñ

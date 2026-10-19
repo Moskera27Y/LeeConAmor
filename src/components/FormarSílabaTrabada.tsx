@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { FRASES_VOZ, fraseFormaSílaba } from '../data/frasesVoz';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface SilabaTrabada {
@@ -35,6 +36,7 @@ export default function FormarSílabaTrabada({
   const [formada, setFormada] = useState<string>('');
   const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
   const [letrasUsadas, setLetrasUsadas] = useState<string[]>([]);
+  const [letrasMezcladas, setLetrasMezcladas] = useState<string[]>([]);
 
   const iniciar = useCallback(() => {
     const silaba = SÍLABAS_TRABADAS[Math.floor(Math.random() * SÍLABAS_TRABADAS.length)];
@@ -42,7 +44,10 @@ export default function FormarSílabaTrabada({
     setFormada('');
     setResultado(null);
     setLetrasUsadas([]);
-  }, []);
+    setLetrasMezcladas([...silaba.letras].sort(() => Math.random() - 0.5));
+    // Instrucción clara: "Pon las letras en orden…" + "Forma la sílaba PRA."
+    hablarSecuencia([FRASES_VOZ.silabasTrabadas, fraseFormaSílaba(silaba.silaba)]);
+  }, [hablarSecuencia]);
 
   const agregarLetra = (letra: string) => {
     if (resultado === 'correcto' || !actual) return;
@@ -55,12 +60,14 @@ export default function FormarSílabaTrabada({
     }
     setFormada(siguiente);
     setLetrasUsadas([...letrasUsadas, letra]);
-    speak(letra);
     if (siguiente === actual.silaba) {
       setResultado('correcto');
-      speak(F_BIEN_LECTURA);
+      // Primero la sílaba completa, luego el elogio: sin cortar sonidos.
+      hablarSecuencia([actual.silaba, F_BIEN_LECTURA]);
       onCorrecto();
+      return;
     }
+    speak(letra);
   };
 
   const borrar = () => {
@@ -106,11 +113,11 @@ export default function FormarSílabaTrabada({
             {formada || '—'}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
-            {(actual.letras as string[]).map((l) => (
+            {letrasMezcladas.map((l, i) => (
               <button
-                key={l}
+                key={`${l}-${i}`}
                 onClick={() => agregarLetra(l)}
-                disabled={resultado === 'correcto' || formada.length >= actual.silaba.length || isSpeaking}
+                disabled={resultado === 'correcto' || formada.length >= actual.silaba.length}
                 className={`letter-btn ${formada.endsWith(l) && !resultado ? 'selected' : ''}`}
                 style={{ width: '72px', height: '72px', fontSize: '2rem' }}
               >
@@ -121,7 +128,7 @@ export default function FormarSílabaTrabada({
           <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={borrar}
-              disabled={letrasUsadas.length === 0 || resultado === 'correcto' || isSpeaking}
+              disabled={letrasUsadas.length === 0 || resultado === 'correcto'}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >
@@ -129,7 +136,6 @@ export default function FormarSílabaTrabada({
             </button>
             <button
               onClick={reiniciar}
-              disabled={isSpeaking}
               className="ghost-btn"
               style={{ minHeight: '48px', fontSize: '0.9rem' }}
             >

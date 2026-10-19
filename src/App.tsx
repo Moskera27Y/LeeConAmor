@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import EvaluacionInicial from './components/EvaluacionInicial';
-import { ETAPAS, ETAPAS_POR_RANGO, avanzar, asegurarLeccionInicial, etapaDeLeccion, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones } from './data/motorNiveles';
+import { ETAPAS, ETAPAS_POR_RANGO, avanzar, asegurarLeccionInicial, etapaDeLeccion, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, ABECEDARIO } from './data/motorNiveles';
 import { SECUENCIA_LECCIONES } from './data/secuenciaLecciones';
-import { fraseGuiaJuego } from './data/frasesVoz';
+import { fraseInsignia, tipoObjetivo, VOCALES_JUEGO, PALABRAS_JUEGO, SILABAS_JUEGO } from './data/frasesVoz';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
@@ -41,14 +41,18 @@ function esNavegador(): boolean {
   return typeof window !== 'undefined';
 }
 
+// Opciones del MISMO tipo que el objetivo (vocales con vocales, letras con
+// letras, sílabas con sílabas, palabras con palabras).
 function opcionesEscuchar(objetivo: string): string[] {
-  const otros = ['A', 'E', 'I', 'O', 'U'].filter((l) => l !== objetivo).slice(0, 3);
-  return [...otros, objetivo].sort(() => Math.random() - 0.5);
-}
-
-function opcionesSilaba(objetivo: string): string[] {
-  const otros = ['MA', 'PA', 'SA', 'LA'].filter((s) => s !== objetivo).slice(0, 3);
-  return [...otros, objetivo].sort(() => Math.random() - 0.5);
+  const o = objetivo.trim().toUpperCase();
+  const tipo = tipoObjetivo(o);
+  let pool: string[];
+  if (tipo === 'vocal') pool = VOCALES_JUEGO.split('');
+  else if (tipo === 'letra') pool = ABECEDARIO;
+  else if (tipo === 'silaba') pool = SILABAS_JUEGO;
+  else pool = PALABRAS_JUEGO;
+  const otros = pool.filter((x) => x !== o).sort(() => Math.random() - 0.5).slice(0, 3);
+  return [o, ...otros].sort(() => Math.random() - 0.5);
 }
 
 function App() {
@@ -123,7 +127,7 @@ function App() {
     });
     setEstadoGamificacion(g.siguiente);
     if (g.nuevasInsignias.length > 0) {
-      speak(`¡Insignia nueva: ${g.nuevasInsignias[0].nombre}! ${g.nuevasInsignias[0].descripcion}`);
+      speak(fraseInsignia(g.nuevasInsignias[0].nombre));
       try {
         if (esNavegador()) window.confetti?.({ particleCount: 130, spread: 150, origin: { y: 0.5 } });
       } catch { /* noop */ }
@@ -471,8 +475,6 @@ const motivoTexto =
                 objetivo={actividadActual.actividad.objetivo}
                 opciones={opcionesEscuchar(actividadActual.actividad.objetivo)}
                 correcta={actividadActual.actividad.objetivo}
-                imagen={actividadActual.actividad.imagen}
-                pista={actividadActual.actividad.pista}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
                 onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
@@ -496,7 +498,7 @@ const motivoTexto =
                 objetivo={actividadActual.actividad.objetivo}
                 palabra={actividadActual.actividad.palabra || actividadActual.actividad.objetivo}
                 imagen={actividadActual.actividad.imagen}
-                opciones={opcionesSilaba(actividadActual.actividad.objetivo)}
+                opciones={opcionesEscuchar(actividadActual.actividad.objetivo)}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
                 onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
@@ -592,6 +594,7 @@ const motivoTexto =
             levels={levels}
             nombre={profile.nombre}
             speak={speak}
+            hablarSecuencia={hablarSecuencia}
             isSpeaking={isSpeaking}
             score={score}
             setScore={setScore}
@@ -603,7 +606,6 @@ const motivoTexto =
 onResultado={manejarResultado}
             onAvanzar={avanzarMotor}
             tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-            instruccionVoz={fraseGuiaJuego(motor.etapa)}
           />
         )}
         {tab === 'leer' && (
@@ -680,6 +682,7 @@ onResultado={manejarResultado}
                 levels={levels}
                 nombre={profile.nombre}
                 speak={speak}
+                hablarSecuencia={hablarSecuencia}
                 isSpeaking={isSpeaking}
                 score={score}
                 setScore={setScore}
@@ -691,7 +694,6 @@ onResultado={manejarResultado}
 onResultado={manejarResultado}
               onAvanzar={avanzarMotor}
               tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-instruccionVoz={fraseGuiaJuego(motor.etapa)}
             />
           )}
             {masJuego === 'escucha_elige' && (
@@ -746,6 +748,7 @@ instruccionVoz={fraseGuiaJuego(motor.etapa)}
             {masJuego === 'trazo' && (
               <TrazoLetra
                 speak={speak}
+                hablarSecuencia={hablarSecuencia}
                 onCorrecto={() => {
                   setScore((s) => s + 10);
                   const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });

@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { fraseFormaSílaba } from '../data/frasesVoz';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
@@ -17,15 +18,30 @@ export default function FormarSílaba({
   const [formada, setFormada] = useState<string>('');
   const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
 
+  const escuchar = () => {
+    hablarSecuencia([fraseFormaSílaba(objetivo)]);
+  };
+
+  useEffect(() => {
+    // Al entrar, Léo dice qué sílaba formar.
+    hablarSecuencia([fraseFormaSílaba(objetivo)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objetivo]);
+
   const agregarLetra = (letra: string) => {
     if (resultado || formada.length >= objetivo.length) return;
-    setFormada(formada + letra);
-    speak(letra);
-    if (formada + letra === objetivo) {
+    const siguiente = formada + letra;
+    if (siguiente === objetivo) {
+      setFormada(siguiente);
       setResultado('correcto');
-      speak(F_BIEN_LECTURA);
+      // Primero la sílaba completa, luego el elogio: sin cortar sonidos.
+      hablarSecuencia([objetivo, F_BIEN_LECTURA]);
       onCorrecto();
-    } else if (formada + letra.length > 0 && !objetivo.startsWith(formada + letra)) {
+      return;
+    }
+    setFormada(siguiente);
+    speak(letra);
+    if (!objetivo.startsWith(siguiente)) {
       setResultado('incorrecto');
       speak(F_ERROR_CASI);
       onError();
@@ -47,6 +63,13 @@ export default function FormarSílaba({
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 0.5rem' }}>
         Forma: {objetivo}
       </p>
+      <button
+        className="listen-btn"
+        onClick={escuchar}
+        style={{ marginBottom: '0.8rem', minHeight: '48px' }}
+      >
+        🔊 Escuchar
+      </button>
       <div style={{ fontSize: '3rem', fontWeight: '900', color: '#764ba2', margin: '1rem 0', minHeight: '3rem' }}>
         {formada || '—'}
       </div>
@@ -55,7 +78,7 @@ export default function FormarSílaba({
           <button
             key={l}
             onClick={() => agregarLetra(l)}
-            disabled={resultado || formada.length >= objetivo.length || isSpeaking}
+            disabled={resultado || formada.length >= objetivo.length}
             className="letter-btn"
             style={{ width: '72px', height: '72px', fontSize: '2rem' }}
           >
@@ -66,7 +89,7 @@ export default function FormarSílaba({
       <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
         <button
           onClick={borrar}
-          disabled={formada.length === 0 || resultado || isSpeaking}
+          disabled={formada.length === 0 || resultado}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
@@ -74,7 +97,7 @@ export default function FormarSílaba({
         </button>
         <button
           onClick={reiniciar}
-          disabled={resultado || isSpeaking}
+          disabled={resultado}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >

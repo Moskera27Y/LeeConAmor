@@ -1,25 +1,31 @@
-﻿// Validación del trazo de letras: decide si lo que el niño dibuja se parece
-// a la letra. Se separa del componente para poder probarla sin navegador.
+﻿// Trazo de letras: la letra y la validación salen de LA MISMA trayectoria.
+// Antes: la letra se dibujaba con texto y los puntitos se ponían a mano, así
+// que no coincidían. Ahora cada letra es un path SVG en un lienzo 0-100 y el
+// validador muestrea ese mismo path: los puntos guía y la forma siempre son
+// exactamente la letra.
+//
+// Solo se usan comandos M, L y Q (el muestreador es JS puro: probado en node
+// sin navegador).
 
 export interface LetraTrazo {
   letra: string;
   fonetica: string;
   imagen: string;
-  // Puntos guía (0-100) que el trazo debe pasar cerca, en este orden.
-  guias: [number, number][];
+  // Trayectoria SVG en espacio 0-100 (cuadrado).
+  d: string;
 }
 
 export const LETRAS_TRACO: LetraTrazo[] = [
-  { letra: 'A', fonetica: 'aaa como manzana', imagen: '🍎', guias: [[50, 18], [50, 30], [30, 78], [50, 55], [70, 78]] },
-  { letra: 'E', fonetica: 'eee como elefante', imagen: '🐘', guias: [[78, 18], [22, 22], [22, 78], [76, 80]] },
-  { letra: 'I', fonetica: 'iii como isla', imagen: '🏝️', guias: [[50, 18], [50, 50], [50, 82]] },
-  { letra: 'O', fonetica: 'ooo como oso', imagen: '⚽', guias: [[50, 18], [26, 50], [50, 82], [74, 50], [50, 18]] },
-  { letra: 'U', fonetica: 'uuu como uva', imagen: '🍇', guias: [[22, 18], [22, 60], [50, 82], [78, 60], [78, 18]] },
-  { letra: 'M', fonetica: 'mmm como mamá', imagen: '👩', guias: [[20, 82], [50, 28], [50, 62], [80, 28], [80, 82]] },
-  { letra: 'P', fonetica: 'ppp como papá', imagen: '👨', guias: [[26, 82], [26, 20], [55, 20], [68, 36], [52, 52], [26, 54]] },
-  { letra: 'S', fonetica: 'sss como serpiente', imagen: '🐍', guias: [[74, 20], [34, 18], [28, 40], [52, 50], [72, 60], [64, 82], [28, 80]] },
-  { letra: 'L', fonetica: 'lll como luna', imagen: '🌙', guias: [[24, 18], [24, 78], [78, 80]] },
-  { letra: 'T', fonetica: 'ttt como tambor', imagen: '🥁', guias: [[18, 18], [50, 18], [50, 52], [50, 84]] },
+  { letra: 'A', fonetica: 'aaa como manzana', imagen: '🍎', d: 'M 22 85 L 50 18 L 78 85 M 32 60 L 68 60' },
+  { letra: 'E', fonetica: 'eee como elefante', imagen: '🐘', d: 'M 78 22 L 25 22 L 25 80 L 78 80 M 25 51 L 66 51' },
+  { letra: 'I', fonetica: 'iii como isla', imagen: '🏝️', d: 'M 50 20 L 50 80' },
+  { letra: 'O', fonetica: 'ooo como oso', imagen: '⚽', d: 'M 50 18 Q 78 18 78 50 Q 78 82 50 82 Q 22 82 22 50 Q 22 18 50 18' },
+  { letra: 'U', fonetica: 'uuu como uva', imagen: '🍇', d: 'M 25 18 L 25 55 Q 25 82 50 82 Q 75 82 75 55 L 75 18' },
+  { letra: 'M', fonetica: 'mmm como mamá', imagen: '👩', d: 'M 18 82 L 18 20 L 50 62 L 82 20 L 82 82' },
+  { letra: 'P', fonetica: 'ppp como papá', imagen: '👨', d: 'M 30 82 L 30 18 L 55 18 Q 75 18 75 38 Q 75 56 55 56 L 30 56' },
+  { letra: 'S', fonetica: 'sss como serpiente', imagen: '🐍', d: 'M 74 22 Q 60 14 46 18 Q 26 22 26 38 Q 26 50 50 50 Q 74 50 74 63 Q 74 82 52 82 Q 36 82 26 76' },
+  { letra: 'L', fonetica: 'lll como luna', imagen: '🌙', d: 'M 26 18 L 26 80 L 76 80' },
+  { letra: 'T', fonetica: 'ttt como tambor', imagen: '🥁', d: 'M 20 18 L 80 18 M 50 18 L 50 82' },
 ];
 
 export type MotivoTrazo = 'corto' | 'chico' | 'forma' | 'ok';
@@ -32,87 +38,182 @@ export interface ResultadoTrazo {
 
 export const MENSAJES_TRAZO: Record<MotivoTrazo, string> = {
   corto: 'Traza un poco más largo, sin levantar el dedo.',
-  chico: 'Ocupa más del cuadrito: empieza cerca de una esquina.',
+  chico: 'Ocupa más del cuadrito: sigue los puntitos de la letra.',
   forma: 'Esa forma no es. Sigue la letra gris con el dedo.',
   ok: '¡Muy bien!',
 };
 
-export function validarTrazo(
-  puntos: { x: number; y: number }[],
-  ancho: number,
-  alto: number,
-  guias: [number, number][]
-): ResultadoTrazo {
-  if (puntos.length < 6) return { ok: false, motivo: 'corto', pct: 0 };
+const TOLERANCIA = 7;       // distancia máxima a la letra (espacio 0-100)
+const COBERTURA_MIN = 0.85; // % de la letra que el niño recorrió
+const COBERTURA_TRAMO_MIN = 0.55; // cada trazo de la letra (ej: travesaño de A)
+const PRECISION_MIN = 0.7;  // % del trazo del niño que va sobre la letra
+const LARGO_MIN = 0.5;      // largo del trazo vs largo de la letra
 
-  const xs = puntos.map((p) => p.x);
-  const ys = puntos.map((p) => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
-  const cajaX = maxX - minX, cajaY = maxY - minY;
+type Punto = { x: number; y: number };
 
-  // El trazo tiene que ocupar una parte real del lienzo.
-  const escala = Math.max(cajaX, cajaY);
-  if (escala < Math.min(ancho, alto) * 0.22) return { ok: false, motivo: 'chico', pct: 0 };
-
-  // Escalamos la caja del dibujo a la caja que ocupa la letra, para que el
-  // niño pueda trazarla del tamaño que quiera sin que se rechace.
-  const gxs = guias.map((g) => g[0]);
-  const gys = guias.map((g) => g[1]);
-  const gx0 = Math.min(...gxs), gx1 = Math.max(...gxs);
-  const gy0 = Math.min(...gys), gy1 = Math.max(...gys);
-  const gw = gx1 - gx0, gh = gy1 - gy0;
-
-  const mapeo = (v: number, desde: number, tamanho: number, c0: number, c1: number) => {
-    if (c1 - c0 < 1 || tamanho < 1) return (c0 + c1) / 2; // dimensión plana
-    return c0 + ((v - desde) / tamanho) * (c1 - c0);
-  };
-
-  const normalizados = puntos.map((p) => ({
-    x: mapeo(p.x, minX, cajaX, gx0, gx1),
-    y: mapeo(p.y, minY, cajaY, gy0, gy1),
-  }));
-
-  // Tolerancia proporcional al tamaño de la letra: ni tan grande que deje
-  // pasar otra letra, ni tan chiquita que le cueste al ni\xF1o.
-  const tolerancia = Math.max(12, Math.min(gw, gh) * 0.28);
-
-  // Largo esperado: el de la propia letra. Así una "I" (un solo trazo) no
-  // queda descartada por ser corta, y un garabato largo tampoco pasa.
-  let largoGuias = 0;
-  for (let i = 1; i < guias.length; i++) {
-    largoGuias += Math.hypot(guias[i][0] - guias[i - 1][0], guias[i][1] - guias[i - 1][1]);
+function empujarLinea(out: Punto[], ax: number, ay: number, bx: number, by: number, paso: number) {
+  const largo = Math.hypot(bx - ax, by - ay);
+  const n = Math.max(1, Math.ceil(largo / paso));
+  for (let s = 1; s <= n; s++) {
+    const t = s / n;
+    out.push({ x: ax + (bx - ax) * t, y: ay + (by - ay) * t });
   }
-  let largo = 0;
-  for (let i = 1; i < normalizados.length; i++) {
-    largo += Math.hypot(
-      normalizados[i].x - normalizados[i - 1].x,
-      normalizados[i].y - normalizados[i - 1].y
-    );
-  }
-  const minimo = largoGuias * 0.6;
-  if (largo < minimo) return { ok: false, motivo: 'corto', pct: Math.round((largo / minimo) * 40) };
+}
 
-  // Cada guía necesita un punto cercano, y en orden creciente.
-  let indice = 0;
-  let aciertos = 0;
-  for (const [gx, gy] of guias) {
-    let mejor = Infinity;
-    let mejorIdx = -1;
-    for (let i = indice; i < normalizados.length; i++) {
-      const d = Math.hypot(normalizados[i].x - gx, normalizados[i].y - gy);
-      if (d < mejor) {
-        mejor = d;
-        mejorIdx = i;
-      }
+function empujarCuad(out: Punto[], ax: number, ay: number, qx: number, qy: number, bx: number, by: number, paso: number) {
+  // Aproxima el largo del arco con 24 tramos rectos.
+  let largoAprox = 0;
+  let px = ax, py = ay;
+  for (let s = 1; s <= 24; s++) {
+    const t = s / 24;
+    const u = 1 - t;
+    const x = u * u * ax + 2 * u * t * qx + t * t * bx;
+    const y = u * u * ay + 2 * u * t * qy + t * t * by;
+    largoAprox += Math.hypot(x - px, y - py);
+    px = x; py = y;
+  }
+  const n = Math.max(2, Math.ceil(largoAprox / paso));
+  for (let s = 1; s <= n; s++) {
+    const t = s / n;
+    const u = 1 - t;
+    out.push({
+      x: u * u * ax + 2 * u * t * qx + t * t * bx,
+      y: u * u * ay + 2 * u * t * qy + t * t * by,
+    });
+  }
+}
+
+/** Convierte la trayectoria SVG en tramos (cada M empieza un trazo nuevo). */
+export function muestrearTramos(d: string, paso = 2): Punto[][] {
+  const tokens = d.match(/[MLQ]|-?\d+(?:\.\d+)?/g) || [];
+  const tramos: Punto[][] = [];
+  let actual: Punto[] = [];
+  let i = 0;
+  let cmd = '';
+  let cx = 0;
+  let cy = 0;
+  while (i < tokens.length) {
+    const t = tokens[i];
+    if (t === 'M' || t === 'L' || t === 'Q') {
+      cmd = t;
+      i++;
+      continue;
     }
-    if (mejor <= tolerancia) {
-      aciertos++;
-      indice = mejorIdx;
-    } else {
-      return { ok: false, motivo: 'forma', pct: Math.round((aciertos / guias.length) * 100) };
+    if (cmd === 'M') {
+      cx = Number(tokens[i++]);
+      cy = Number(tokens[i++]);
+      actual = [{ x: cx, y: cy }];
+      tramos.push(actual);
+      continue;
+    }
+    if (cmd === 'L') {
+      const x = Number(tokens[i++]);
+      const y = Number(tokens[i++]);
+      empujarLinea(actual, cx, cy, x, y, paso);
+      cx = x;
+      cy = y;
+      continue;
+    }
+    if (cmd === 'Q') {
+      const qx = Number(tokens[i++]);
+      const qy = Number(tokens[i++]);
+      const x = Number(tokens[i++]);
+      const y = Number(tokens[i++]);
+      empujarCuad(actual, cx, cy, qx, qy, x, y, paso);
+      cx = x;
+      cy = y;
     }
   }
+  return tramos.filter((t) => t.length >= 1);
+}
 
-  return { ok: true, motivo: 'ok', pct: 100 };
+/** Convierte la trayectoria SVG (M/L/Q) en una polilínea densa de puntos. */
+export function muestrearTrazo(d: string, paso = 2): Punto[] {
+  return muestrearTramos(d, paso).flat();
+}
+
+function distanciaSegmento(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return Math.hypot(px - ax, py - ay);
+  let t = ((px - ax) * dx + (py - ay) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+function distanciaAPolilinea(p: Punto, linea: Punto[]): number {
+  let mejor = Infinity;
+  for (let i = 1; i < linea.length; i++) {
+    const d = distanciaSegmento(p.x, p.y, linea[i - 1].x, linea[i - 1].y, linea[i].x, linea[i].y);
+    if (d < mejor) mejor = d;
+  }
+  return mejor;
+}
+
+function largoPolilinea(linea: Punto[]): number {
+  let total = 0;
+  for (let i = 1; i < linea.length; i++) {
+    total += Math.hypot(linea[i].x - linea[i - 1].x, linea[i].y - linea[i - 1].y);
+  }
+  return total;
+}
+
+/**
+ * Valida el trazo del niño contra la letra.
+ * `puntos` vienen en espacio 0-100 (el componente convierte de píxeles).
+ * No exige orden: basta con recorrer la letra sin salirse de ella (la
+ * cobertura ya rechaza dibujar otra letra o una parte suelta).
+ */
+export function validarTrazo(puntos: Punto[], d: string): ResultadoTrazo {
+  const limpio: Punto[] = [];
+  for (const p of puntos) {
+    const ultimo = limpio[limpio.length - 1];
+    if (!ultimo || Math.hypot(p.x - ultimo.x, p.y - ultimo.y) >= 1) limpio.push(p);
+  }
+  if (limpio.length < 4) return { ok: false, motivo: 'corto', pct: 0 };
+
+  const tramos = muestrearTramos(d, 2);
+  const trayectoria = tramos.flat();
+  if (trayectoria.length < 2) return { ok: false, motivo: 'forma', pct: 0 };
+
+  const xs = limpio.map((p) => p.x);
+  const ys = limpio.map((p) => p.y);
+  const caja = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  if (caja < 22) return { ok: false, motivo: 'chico', pct: 0 };
+
+  const largoTrayectoria = largoPolilinea(trayectoria);
+  const largoUsuario = largoPolilinea(limpio);
+  if (largoUsuario < largoTrayectoria * LARGO_MIN) {
+    return { ok: false, motivo: 'corto', pct: Math.round((largoUsuario / largoTrayectoria) * 40) };
+  }
+
+  // Cobertura: cuánta de la letra quedó cubierta por el dedo.
+  // Se exige además que cada trazo (ej: el travesaño de la A) esté cubierto.
+  let cubiertos = 0;
+  for (const tramo of tramos) {
+    let cubiertosTramo = 0;
+    for (const p of tramo) {
+      if (distanciaAPolilinea(p, limpio) <= TOLERANCIA) cubiertosTramo++;
+    }
+    const coberturaTramo = cubiertosTramo / tramo.length;
+    if (coberturaTramo < COBERTURA_TRAMO_MIN) {
+      return { ok: false, motivo: 'forma', pct: Math.round(coberturaTramo * 100) };
+    }
+    cubiertos += cubiertosTramo;
+  }
+  const cobertura = cubiertos / trayectoria.length;
+
+  // Precisión: cuánto del trazo del niño está sobre la letra.
+  let precisos = 0;
+  for (const p of limpio) {
+    if (distanciaAPolilinea(p, trayectoria) <= TOLERANCIA) precisos++;
+  }
+  const precision = precisos / limpio.length;
+
+  const pct = Math.round(Math.min(cobertura, precision) * 100);
+  if (cobertura >= COBERTURA_MIN && precision >= PRECISION_MIN) {
+    return { ok: true, motivo: 'ok', pct: 100 };
+  }
+  return { ok: false, motivo: 'forma', pct };
 }

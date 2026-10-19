@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 interface Props {
   texto: string;
@@ -13,35 +13,32 @@ export default function Storytime({
 }: Props) {
   const [palabraActiva, setPalabraActiva] = useState<number | null>(null);
   const [terminado, setTerminado] = useState(false);
-  const palabras = texto.split(' ');
-  const [audioIdx, setAudioIdx] = useState(0);
+  const [leyendo, setLeyendo] = useState(false);
+  const avisado = useRef(false);
+  const palabras = texto.split(/\s+/).filter(Boolean);
 
-  const leerSiguiente = useCallback(async () => {
-    if (audioIdx >= palabras.length) {
-      setTerminado(true);
-      onTerminado();
-      return;
-    }
-    setPalabraActiva(audioIdx);
-    speak(palabras[audioIdx]);
-    // Esperar un poco antes de la siguiente palabra
-    setTimeout(() => {
-      setAudioIdx((siguiente) => siguiente + 1);
-    }, 600);
-  }, [palabras, audioIdx, speak, onTerminado]);
-
-  const empezar = useCallback(() => {
-    setPalabraActiva(null);
-    setAudioIdx(0);
+  const leerTodo = useCallback(async () => {
+    if (leyendo) return;
+    setLeyendo(true);
     setTerminado(false);
-    leerSiguiente();
-  }, [leerSiguiente]);
-
-  useEffect(() => {
-    if (!terminado && audioIdx === 0 && palabras.length > 0) {
-      empezar();
+    for (let i = 0; i < palabras.length; i++) {
+      setPalabraActiva(i);
+      // Cada palabra espera a que termine su audio: sin cortes ni traslapes.
+      const ok = await hablarSecuencia([palabras[i]]);
+      if (!ok) {
+        setPalabraActiva(null);
+        setLeyendo(false);
+        return;
+      }
     }
-  }, [empezar, terminado, audioIdx, palabras.length]);
+    setPalabraActiva(null);
+    setLeyendo(false);
+    setTerminado(true);
+    if (!avisado.current) {
+      avisado.current = true;
+      onTerminado();
+    }
+  }, [palabras, hablarSecuencia, leyendo, onTerminado]);
 
   return (
     <div className="storytime" style={{ textAlign: 'center', margin: '1rem 0' }}>
@@ -69,6 +66,14 @@ export default function Storytime({
           </span>
         ))}
       </div>
+      <button
+        className="listen-btn"
+        onClick={leerTodo}
+        disabled={leyendo}
+        style={{ minHeight: '48px' }}
+      >
+        {leyendo ? '🦉 Leyendo…' : '🔊 Leer el cuento'}
+      </button>
       {terminado && (
         <div style={{ marginTop: '1rem' }}>
           <p style={{ color: '#28a745', fontWeight: '800' }}>¡Cuento terminado!</p>

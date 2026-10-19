@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { fraseSilabaInicial } from '../data/frasesVoz';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
@@ -25,7 +26,7 @@ export default function SílabaInicial({
     setSeleccionada(null);
     setResultado(null);
     setEscuchado(false);
-    await hablarSecuencia([`${palabra} empieza con ${objetivo}. ¿Cuál es la primera sílaba?`]);
+    await hablarSecuencia([fraseSilabaInicial(palabra)]);
     setEscuchado(true);
   }, [palabra, objetivo, hablarSecuencia, isSpeaking]);
 

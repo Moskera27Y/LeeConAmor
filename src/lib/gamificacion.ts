@@ -72,14 +72,14 @@ export const TODAS_LAS_INSIGNIAS: Insignia[] = [
   {
     id: 'cinco_aciertos',
     nombre: 'Cinco aciertos',
-    descripcion: 'Consiguiste 5 aciertos en total',
+    descripcion: 'Conseguiste 5 aciertos en total',
     emoji: '⭐',
     condicion: (e) => e.aciertosTotales >= 5,
   },
   {
     id: 'diez_aciertos',
     nombre: 'Diez aciertos',
-    descripcion: 'Consiguiste 10 aciertos en total',
+    descripcion: 'Conseguiste 10 aciertos en total',
     emoji: '⭐⭐',
     condicion: (e) => e.aciertosTotales >= 10,
   },
