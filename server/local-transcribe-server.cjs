@@ -24,39 +24,11 @@ app.use(cors());
 app.use(express.json({ limit: '200kb' }));
 const upload = multer({ dest: 'temp-uploads/', limits: { fileSize: 10 * 1024 * 1024 } });
 
-// --- Voz de Léo con Gemini TTS (femenina, natural). Caché en memoria. ---
-// Gemini devuelve PCM crudo (no WAV): hay que envolverlo para que el navegador lo reproduzca.
-function pcmToWavBase64(b64, mime) {
-  const raw = Buffer.from(b64, 'base64');
-  if (raw.length >= 4 && raw.slice(0, 4).toString() === 'RIFF') return { audio: b64, mime: 'audio/wav' };
-  const m = /rate=(\d+)/i.exec(mime || '');
-  const sampleRate = m ? parseInt(m[1], 10) : 24000;
-  const numChannels = 1;
-  const bitsPerSample = 16;
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + raw.length, 4);
-  header.write('WAVE', 8);
-  header.write('fmt ', 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(numChannels, 22);
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE((sampleRate * numChannels * bitsPerSample) / 8, 28);
-  header.writeUInt16LE((numChannels * bitsPerSample) / 8, 32);
-  header.writeUInt16LE(bitsPerSample, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(raw.length, 40);
-  return { audio: Buffer.concat([header, raw]).toString('base64'), mime: 'audio/wav' };
-}
+// --- Voz de Léo: SOLO la voz CLONADA (XTTS). Sin voces de pago. ---
+// Si el clon no responde, el frontend usa su propia voz del navegador.
 const VOZ_CACHE = new Map();
 const VOCES_VALIDAS = ['Callirrhoe'];
-// Modelos en orden: lite (más cuota) y luego el normal como respaldo.
-const TTS_MODELS = [
-  process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-lite-preview-tts',
-  'gemini-2.5-flash-preview-tts',
-].filter((v, i, a) => v && a.indexOf(v) === i);
-// Caché en disco: lo generado una vez no vuelve a gastar cuota aunque se reinicie.
+// Caché en disco: lo generado una vez no se vuelve a clonar.
 const crypto = require('crypto');
 const path = require('path');
 const VOZ_DIR = path.join(__dirname, 'voz-cache');
@@ -76,89 +48,13 @@ function guardarCacheDisco(voz, texto, out) {
     fs.writeFileSync(vozArchivo(voz, texto), JSON.stringify(out));
   } catch { /* noop */ }
 }
-// Cola con pausa: evita ráfagas que agotan el límite por minuto de lo gratis.
-let colaVoz = Promise.resolve();
-let ultimaVoz = 0;
-function encolarVoz(fn) {
-  const turno = colaVoz.then(async () => {
-    const espera = 1200 - (Date.now() - ultimaVoz);
-    if (espera > 0) await sleep(espera);
-    const out = await fn();
-    ultimaVoz = Date.now();
-    return out;
-  });
-  colaVoz = turno.catch(() => {});
-  return turno;
-}
-
-async function llamarGeminiTTS(modelo, apiKey, texto, vozFinal) {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: `Habla como una maestra dulce y alegre para ninos pequenos, despacio y con carino: ${texto}` }] },
-        ],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vozFinal } } },
-        },
-      }),
-    }
-  );
-  return r;
-}
-
-// Acepta varias claves gratis separadas por coma: si una se queda sin cuota,
-// prueba automáticamente con la siguiente (ej. claves de 2 cuentas de Google).
-function geminiKeys() {
-  return String(process.env.GEMINI_API_KEY || '')
-    .split(',')
-    .map((k) => k.trim())
-    .filter(Boolean);
-}
-
-async function vozGemini(texto, voz) {
-  const keys = geminiKeys();
-  if (!keys.length) throw Object.assign(new Error('Falta GEMINI_API_KEY'), { status: 501 });
-  const vozFinal = 'Callirrhoe';
-  let ultimoError = null;
-  for (const apiKey of keys) {
-    for (const modelo of TTS_MODELS) {
-      const r = await llamarGeminiTTS(modelo, apiKey, texto, vozFinal);
-      if (r.status === 404) continue; // modelo no existe aquí, probar el siguiente
-      if (r.status === 429) {
-        ultimoError = Object.assign(new Error('Cuota gratis de Gemini agotada, intentalo mas tarde'), { status: 502 });
-        break; // esta clave no tiene cuota: probar la siguiente clave
-      }
-      if (r.status === 400 || r.status === 401 || r.status === 403) {
-        ultimoError = Object.assign(new Error('API key de Gemini invalida'), { status: 401 });
-        break; // clave mala: probar la siguiente clave
-      }
-      if (!r.ok) {
-        ultimoError = Object.assign(new Error(`Gemini devolvio ${r.status}`), { status: 500 });
-        continue;
-      }
-      const data = await r.json();
-      const parts = data?.candidates?.[0]?.content?.parts || [];
-      const audio = parts.find((p) => p?.inlineData?.data);
-      if (!audio) throw Object.assign(new Error('Gemini no devolvio audio'), { status: 502 });
-      const wav = pcmToWavBase64(audio.inlineData.data, audio.inlineData.mimeType || 'audio/wav');
-      return { audio: wav.audio, mime: wav.mime, voz: vozFinal, modelo };
-    }
-  }
-  throw ultimoError || Object.assign(new Error('Ningun modelo de voz disponible'), { status: 500 });
-}
-
 app.get('/api/voces', async (_req, res) => {
   let clon = false;
   try {
     const { clonSalud } = require('./voz-clon/cliente-clon.cjs');
     clon = await clonSalud();
   } catch { /* apagado */ }
-  res.json({ voces: VOCES_VALIDAS, defecto: 'Callirrhoe', modelos: TTS_MODELS, geminiListo: Boolean(process.env.GEMINI_API_KEY), clonListo: clon });
+  res.json({ voces: VOCES_VALIDAS, defecto: 'Callirrhoe', clonListo: clon });
 });
 
 app.post('/api/voz', async (req, res) => {
@@ -172,21 +68,14 @@ app.post('/api/voz', async (req, res) => {
     VOZ_CACHE.set(ck, enDisco);
     return res.json({ ...enDisco, cache: true });
   }
+  // Solo la voz clonada. Sin ella, el frontend usa la voz del navegador.
   try {
-    // 1. Clon local gratis (si está prendido): no gasta cuota
-    try {
-      const { clonarLocal } = require('./voz-clon/cliente-clon.cjs');
-      const clon = await clonarLocal(texto);
-      if (clon?.audio) {
-        const out = { ...clon, voz };
-        VOZ_CACHE.set(ck, out);
-        guardarCacheDisco(voz, texto, out);
-        if (VOZ_CACHE.size > 200) VOZ_CACHE.delete(VOZ_CACHE.keys().next().value);
-        return res.json({ ...out, cache: false });
-      }
-    } catch { /* sigue a Gemini */ }
-    // 2. Gemini nube (con rotación de claves)
-    const out = await encolarVoz(() => vozGemini(texto, voz));
+    const { clonarLocal } = require('./voz-clon/cliente-clon.cjs');
+    const clon = await clonarLocal(texto);
+    if (!clon?.audio) {
+      return res.status(502).json({ error: 'La voz clonada no esta disponible. Arranca el clon.' });
+    }
+    const out = { ...clon, voz };
     VOZ_CACHE.set(ck, out);
     guardarCacheDisco(voz, texto, out);
     if (VOZ_CACHE.size > 200) VOZ_CACHE.delete(VOZ_CACHE.keys().next().value);
@@ -276,7 +165,7 @@ app.get('/api/health', (_req, res) => {
     gratisNativo: true,
     tieneWhisperApiKey: Boolean(process.env.WHISPER_API_KEY),
     tieneOpenAIKey: Boolean(process.env.OPENAI_API_KEY),
-    tieneGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    tieneClon: Boolean(process.env.CLON_URL),
   });
 });
 

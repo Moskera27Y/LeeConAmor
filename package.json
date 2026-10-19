@@ -6,7 +6,7 @@
     "api:dev": "node server/local-transcribe-server.cjs",
     "clon:servidor": "server\\voz-clon\\venv\\Scripts\\python server\\voz-clon\\clonar.py",
     "voz:clon": "node server/precache-clon.cjs",
-    "voz:precache": "node server/precache-voz.cjs",
+    "voz:contar": "node server/precache-clon.cjs --contar",
     "voz:nombres": "node server/precache-nombres.cjs",
     "todo": "concurrently -n api,web -c magenta,cyan \"npm:api:dev\" \"npm:dev\"",
     "build": "vite build",
