@@ -229,7 +229,7 @@ const LECCIONES_3_5: Leccion[] = [
     audioCelebracion: '¡Qué bien! Leíste PAPA.',
   },
   {
-    id: 'l_35_palabras_p era',
+    id: 'l_35_palabras_pera',
     rango: '3-5',
     etapa: 'palabras_2_silabas',
     orden: 3,

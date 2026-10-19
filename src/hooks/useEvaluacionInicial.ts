@@ -31,7 +31,7 @@ export const PREGUNTAS_EVAL: PreguntaEval[] = [
   // 6-8: Palabras
   { id: 'palabra_mama', rango: '6-8', tipo: 'palabra_leer', enunciado: 'Lee esta palabra: MAMA', opciones: ['MAMA', 'PAPA', 'LAVA'], respuestaEsperada: 'MAMA', peso: 2 },
   { id: 'palabra_papa', rango: '6-8', tipo: 'palabra_leer', enunciado: 'Lee esta palabra: PAPA', opciones: ['PAPA', 'MAMA', 'TANA'], respuestaEsperada: 'PAPA', peso: 2 },
-  { id: 'palabra_p era', rango: '6-8', tipo: 'palabra_leer', enunciado: 'Lee esta palabra: PERA', opciones: ['PERA', 'PAPA', 'PERRO'], respuestaEsperada: 'PERA', peso: 2 },
+  { id: 'palabra_pera', rango: '6-8', tipo: 'palabra_leer', enunciado: 'Lee esta palabra: PERA', opciones: ['PERA', 'PAPA', 'PERRO'], respuestaEsperada: 'PERA', peso: 2 },
   // 6-8: Oración corta
   { id: 'oracion_corta', rango: '6-8', tipo: 'oracion_leer', enunciado: 'Lee esta oración: El sol brilla', opciones: ['El sol brilla', 'El sol mira', 'La luna brilla'], respuestaEsperada: 'El sol brilla', peso: 3 },
 ];

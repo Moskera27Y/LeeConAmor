@@ -11,6 +11,8 @@
     "todo": "concurrently -n api,web -c magenta,cyan \"npm:api:dev\" \"npm:dev\"",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test:trazo": "node server/test-trazo.cjs",
+    "test": "node server/test-trazo.cjs",
     "verify": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },
