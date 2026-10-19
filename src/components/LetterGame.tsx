@@ -3,6 +3,7 @@ import type { Level } from '../data/curriculum';
 import BotMessage from './BotMessage';
 import { ABECEDARIO } from '../data/motorNiveles';
 import { F_ERROR_CASI, F_FELICIDADES_FIN, F_NIVEL_OK } from '../data/frases';
+import { FRASES_VOZ } from '../data/frasesVoz';
 
 declare global {
   interface Window {
@@ -22,6 +23,8 @@ interface Props {
   onResultado?: (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => void;
   onAvanzar?: () => void;
   tituloNivel?: string;
+  // Frase de guía pregenerada (depende de la etapa): evita textos dinámicos.
+  instruccionVoz?: string;
 }
 
 const PRAISE = ['¡Muy bien! 🎉', '¡Genial! ⭐', '¡Súper! 🌈', '¡Hermoso! 💛'];
@@ -37,7 +40,7 @@ async function boomConfetti(colores?: string[]) {
   } catch { /* noop */ }
 }
 
-export default function LetterGame({ levels = [], nombre = '', speak = () => {}, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel }: Props & { key?: string }) {
+export default function LetterGame({ levels = [], nombre = '', speak = () => {}, isSpeaking = false, score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {}, onResultado, onAvanzar, tituloNivel, instruccionVoz }: Props & { key?: string }) {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [letters, setLetters] = useState<string[]>([]);
   const [selectedLetters, setSelectedLetters] = useState<string[]>([]);
@@ -83,11 +86,12 @@ const generateLetters = useCallback(() => {
     setSelectedLetters([]);
     setWrongLetters([]);
     setFoundWords([]);
-    // Hablado: solo la instrucción fija (pregrabada)
+    // En pantalla va la instrucción detallada del nivel; lo que Léo DICE es una
+    // frase fija pregenerada con la voz clonada (según la etapa).
     setBotTipo('info');
     setBotTexto(config.instruction || '');
-    speak(config.instruction);
-  }, [config, speak]);
+    speak(instruccionVoz || FRASES_VOZ.juegoLetrasRepaso);
+  }, [config, speak, instruccionVoz]);
 
   useEffect(() => {
     generateLetters();

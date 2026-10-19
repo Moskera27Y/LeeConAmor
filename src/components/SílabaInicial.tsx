@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -33,11 +34,11 @@ export default function SílabaInicial({
     setSeleccionada(opcion);
     if (opcion === objetivo) {
       setResultado('correcto');
-      speak(`¡Muy bien! ${palabra} empieza con ${objetivo}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     } else {
       setResultado('incorrecto');
-      speak(`Casi. ${palabra} empieza con ${objetivo}.`);
+      speak(F_ERROR_CASI);
       onError();
     }
   };

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface SilabaTrabada {
   id: string;
@@ -48,7 +49,7 @@ export default function FormarSílabaTrabada({
     const siguiente = formada + letra;
     if (!actual.silaba.startsWith(siguiente)) {
       setResultado('incorrecto');
-      speak(`Casi. La sílaba es ${actual.silaba}. Intenta otra vez.`);
+      speak(F_ERROR_CASI);
       onError();
       return;
     }
@@ -57,7 +58,7 @@ export default function FormarSílabaTrabada({
     speak(letra);
     if (siguiente === actual.silaba) {
       setResultado('correcto');
-      speak(`¡Muy bien! Formaste ${actual.silaba}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     }
   };

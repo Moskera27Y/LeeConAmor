@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ABECEDARIO, VOCALES } from '../data/motorNiveles';
+import { FRASES_VOZ } from '../data/frasesVoz';
 import { F_GRADUACION } from '../data/frases';
 
 interface Props {
@@ -27,7 +28,10 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
     return [...dist, letra].sort(() => Math.random() - 0.5);
   }
 
-  const preguntar = () => speak(`Toca la letra ${preguntas[idx]}`);
+  const preguntar = () => {
+    speak(FRASES_VOZ.examen);
+    speak(preguntas[idx]);
+  };
 
   const elegir = (l: string) => {
     if (elegida) return;

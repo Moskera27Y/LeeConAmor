@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOZ_UNICA, getVoz, setVoz } from '../data/voces';
 import { AUDIO_FIJO } from '../data/audioFijo';
 
@@ -58,12 +58,14 @@ function clasificarError(msg: string, status: number): Exclude<MotivoVoz, null> 
   return 'apagado';
 }
 
-// Voz híbrida: SOLO la suave de Gemini. Si falla, NO suena ningún robot:
-// muestra el motivo y un botón para reintentar. La básica solo suena si el
-// adulto la pide a propósito (usarVozBasica).
+// Voz de Léo = la CLONADA (ver api/voz.ts y public/audio). Orden:
+//   1. audio pregenerado con el clon  -> lo normal, gratis e instantaneo
+//   2. /api/voz -> llama al clon (Space o local)
+//   3. voz del navegador -> solo si el clon no existe en absoluto
+// Nunca se usa una voz sintetica de pago.
 export function useVoice(enabled: boolean) {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [fuente, setFuente] = useState<'gemini' | 'nativa' | 'ninguna'>('ninguna');
+  const [fuente, setFuente] = useState<'clon' | 'nativa' | 'ninguna'>('ninguna');
   const [motivo, setMotivo] = useState<MotivoVoz>(null);
   const [necesitaToque, setNecesitaToque] = useState(false);
   const [vozNombre, setVozNombreState] = useState(getVoz());
@@ -224,13 +226,13 @@ export function useVoice(enabled: boolean) {
       const url = await resolverAudio(corto, voz, turno);
       if (turno !== turnoRef.current) return; // otra voz tomó el turno
       if (!url) {
-        // Fallback a voz nativa del navegador si Gemini no está disponible
+        // Ultimo recurso: voz del navegador (solo si el clon no esta disponible)
         setFuente('nativa');
         setMotivo(null);
         sonarNativa(corto);
         return;
       }
-      setFuente('gemini');
+      setFuente('clon');
       setMotivo(null);
       reproducirUrl(url, corto, turno);
     },
@@ -251,14 +253,14 @@ export function useVoice(enabled: boolean) {
         lastText.current = corto;
         const url = await resolverAudio(corto, voz, turno);
         if (turno !== turnoRef.current || !url) {
-          // Fallback a voz nativa si no hay audio de Gemini
+          // Ultimo recurso: voz del navegador
           setFuente('nativa');
           setMotivo(null);
           sonarNativa(corto);
           await new Promise((r) => setTimeout(r, 1500));
           continue;
         }
-        setFuente('gemini');
+        setFuente('clon');
         setMotivo(null);
         const ok = await new Promise<boolean>((fin) => {
           if (turno !== turnoRef.current) return fin(false);

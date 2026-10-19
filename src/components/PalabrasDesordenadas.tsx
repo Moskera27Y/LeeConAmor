@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface PalabraDesordenada {
   id: string;
@@ -47,7 +48,7 @@ export default function PalabrasDesordenadas({
     const siguiente = formada + silaba;
     if (!actual.palabra.startsWith(siguiente)) {
       setResultado('incorrecto');
-      speak(`Casi. La palabra es ${actual.palabra}. Intenta otra vez.`);
+      speak(F_ERROR_CASI);
       onError();
       return;
     }
@@ -56,7 +57,7 @@ export default function PalabrasDesordenadas({
     speak(silaba);
     if (siguiente === actual.palabra) {
       setResultado('correcto');
-      speak(`¡Muy bien! Formaste ${actual.palabra}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     }
   };

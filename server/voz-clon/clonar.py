@@ -1,6 +1,7 @@
 """Servicio local: clona la voz de Léo (XTTS-v2, español) desde la referencia.
 Uso: ..\voz-clon\venv\Scripts\python clonar.py   (o iniciar-voz-clon.bat)
-Primera vez descarga ~2GB del modelo. CPU: 30-60s por frase (se cachea todo).
+La referencia se recorta a 12s (referencia-leo-corta.wav): XTTS clona igual de
+bien y corre bastante mas rápido que con los 50s completos.
 """
 import io
 import os
@@ -11,7 +12,8 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 import soundfile as sf
 
-REF = os.path.join(os.path.dirname(__file__), "referencia-leo.wav")
+REF = os.path.join(os.path.dirname(__file__), "referencia-leo-corta.wav")
+REF_LARGA = os.path.join(os.path.dirname(__file__), "referencia-leo.wav")
 
 # El clon solo habla: fuera emojis y símbolos que tumban al modelo.
 _LIMPIO = re.compile(r"[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9¿?¡!.,;:'\"()\- ]+")
@@ -45,7 +47,7 @@ def get_tts():
 
 @app.get("/salud")
 def salud():
-    return {"ok": True, "referencia": os.path.exists(REF)}
+    return {"ok": True, "referencia": os.path.exists(REF), "ref": os.path.basename(REF)}
 
 
 @app.post("/clonar")

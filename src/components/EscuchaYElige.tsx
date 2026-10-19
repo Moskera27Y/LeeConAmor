@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
+import { FRASES_VOZ } from '../data/frasesVoz';
 
 interface OpcionImagen {
   id: string;
@@ -61,7 +63,7 @@ export default function EscuchaYElige({
     const objetivo = mezcladas[Math.floor(Math.random() * mezcladas.length)];
     setObjetivoActual(objetivo);
 
-    await hablarSecuencia([`¿Dónde está ${objetivo.texto}?`]);
+    await hablarSecuencia([FRASES_VOZ.escuchaYElige]);
     setEscuchando(false);
   }, [hablarSecuencia, isSpeaking, todasLasOpciones]);
 
@@ -71,11 +73,11 @@ export default function EscuchaYElige({
 
     if (opcion.id === objetivoActual.id) {
       setResultado('correcto');
-      speak(`¡Muy bien! Encontraste ${opcion.texto}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     } else {
       setResultado('incorrecto');
-      speak(`Casi. Buscábamos ${objetivoActual.texto}. Intenta otra vez.`);
+      speak(F_ERROR_CASI);
       onError();
     }
   };

@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { FRASES_VOZ } from '../data/frasesVoz';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -25,7 +27,7 @@ export default function EscucharYTocar({
     setSeleccionada(null);
     setResultado(null);
     setEscuchado(false);
-    await hablarSecuencia([`${objetivo}. ${pista || ''}. Toca: ${objetivo}.`]);
+    await hablarSecuencia([FRASES_VOZ.escuchaYTocar]);
     setEscuchado(true);
   }, [objetivo, pista, hablarSecuencia, isSpeaking]);
 
@@ -34,11 +36,11 @@ export default function EscucharYTocar({
     setSeleccionada(opcion);
     if (opcion === correcta) {
       setResultado('correcto');
-      speak(`¡Muy bien! Dijiste ${objetivo} clarito.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     } else {
       setResultado('incorrecto');
-      speak(`Casi. El sonido era ${objetivo}.`);
+      speak(F_ERROR_CASI);
       onError();
     }
   };

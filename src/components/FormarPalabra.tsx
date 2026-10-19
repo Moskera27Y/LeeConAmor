@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -23,7 +24,7 @@ export default function FormarPalabra({
     const siguiente = formada + silaba;
     if (!objetivo.startsWith(siguiente)) {
       setResultado('incorrecto');
-      speak(`Casi. Intenta formar ${objetivo} de nuevo.`);
+      speak(F_ERROR_CASI);
       setSilabasUsadas([]);
       setFormada('');
       onError();
@@ -34,7 +35,7 @@ export default function FormarPalabra({
     speak(silaba);
     if (siguiente === objetivo) {
       setResultado('correcto');
-      speak(`¡Muy bien! Formaste ${objetivo}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     }
   };

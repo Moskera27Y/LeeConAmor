@@ -1,5 +1,6 @@
 ﻿import { useState, useCallback, type MouseEvent, type TouchEvent } from 'react';
 import { LETRAS_TRACO, MENSAJES_TRAZO, validarTrazo, type LetraTrazo } from '../lib/trazo';
+import { F_BIEN_LECTURA } from '../data/frases';
 interface Props {
   speak: (t: string) => void;
   onCorrecto: () => void;
@@ -61,7 +62,7 @@ export default function TrazoLetra({
     if (r.ok) {
       setCompletado(true);
       setAviso('');
-      speak(`¡Muy bien! Trazaste la ${actual.letra}, suena ${actual.fonetica}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
       return;
     }

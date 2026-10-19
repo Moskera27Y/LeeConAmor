@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { F_BIEN_LECTURA } from '../data/frases';
 
 interface Props {
   objetivo: string;
@@ -23,7 +24,7 @@ export default function LeerConElDedo({
     speak(letras[idx]);
     if (letrasTocadas.size + 1 === letras.length) {
       setResultado('correcto');
-      speak(`¡Muy bien! Leíste ${objetivo}.`);
+      speak(F_BIEN_LECTURA);
       onCorrecto();
     }
   };

@@ -1,9 +1,10 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
 import EvaluacionInicial from './components/EvaluacionInicial';
 import { ETAPAS, ETAPAS_POR_RANGO, avanzar, asegurarLeccionInicial, etapaDeLeccion, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones } from './data/motorNiveles';
 import { SECUENCIA_LECCIONES } from './data/secuenciaLecciones';
+import { fraseGuiaJuego } from './data/frasesVoz';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
@@ -246,11 +247,13 @@ function App() {
 
   // Si hay voz nativa disponible, la app sigue hablando aunque el backend falle,
 // así que solo avisamos cuando de verdad no hay ninguna voz.
+// Solo avisamos cuando de verdad no hay ninguna voz disponible. La voz del
+// navegador es el ultimo recurso, no lo normal.
 const motivoTexto =
-    motivo === 'key' ? 'Léo no pudo usar su voz suave (revisa la clave de Gemini). Usa la voz del navegador.' :
-    motivo === 'cuota' ? 'Léo está descansando su voz un momento. Usa la voz del navegador.' :
-    motivo === 'apagado' ? 'Léo no pudo usar su voz suave (prende el backend). Usa la voz del navegador.' :
-    motivo === 'otro' ? 'Léo no pudo usar su voz suave. Usa la voz del navegador.' : '';
+    motivo === 'key' ? 'No se pudo generar esa frase con la voz clonada. Usa la voz del navegador.' :
+    motivo === 'cuota' ? 'Esa frase no se pudo clonar ahora. Usa la voz del navegador.' :
+    motivo === 'apagado' ? 'No se pudo contactar con la voz clonada. Usa la voz del navegador.' :
+    motivo === 'otro' ? 'Esa frase no se pudo clonar. Usa la voz del navegador.' : '';
 
   // Mantener presionado el animalito 1.5s abre la zona de padres
   const pressStart = () => {
@@ -597,9 +600,10 @@ const motivoTexto =
               saveProgreso(profile.id, done, total);
             }}
             onRepeat={repeat}
-            onResultado={manejarResultado}
+onResultado={manejarResultado}
             onAvanzar={avanzarMotor}
             tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+            instruccionVoz={fraseGuiaJuego(motor.etapa)}
           />
         )}
         {tab === 'leer' && (
@@ -684,11 +688,12 @@ const motivoTexto =
                   saveProgreso(profile.id, done, total);
                 }}
                 onRepeat={repeat}
-                onResultado={manejarResultado}
-                onAvanzar={avanzarMotor}
-                tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-              />
-            )}
+onResultado={manejarResultado}
+              onAvanzar={avanzarMotor}
+              tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+instruccionVoz={fraseGuiaJuego(motor.etapa)}
+            />
+          )}
             {masJuego === 'escucha_elige' && (
               <EscucharYElige
                 rango={profile.rango}

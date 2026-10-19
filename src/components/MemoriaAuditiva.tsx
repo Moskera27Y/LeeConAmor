@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
+import { FRASES_VOZ } from '../data/frasesVoz';
 
 interface SonidoMemoria {
   id: string;
@@ -63,7 +65,7 @@ export default function MemoriaAuditiva({
       setTurnoUsuario(turnoUsuario + 1);
       if (turnoUsuario + 1 >= secuencia.length) {
         setResultado('correcto');
-        speak(`¡Muy bien! Recordaste ${secuencia.length} sonidos.`);
+        speak(F_BIEN_LECTURA);
         setNivel(nivel + 1);
         onCorrecto();
         setTimeout(() => {
@@ -75,7 +77,7 @@ export default function MemoriaAuditiva({
       }
     } else {
       setResultado('incorrecto');
-      speak(`Casi. La secuencia era diferente. Intenta otra vez.`);
+      speak(F_ERROR_CASI);
       onError();
       setTimeout(() => {
         setResultado(null);

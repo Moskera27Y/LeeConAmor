@@ -29,7 +29,7 @@ const CLON = (process.env.CLON_URL || 'http://127.0.0.1:7860').replace(/\/$/, ''
 const VOZ = 'Callirrhoe';
 const RECHACER = process.argv.includes('--rehacer');
 
-const PREFIJOS = { fijo: 'f', nombre: 'n', leccion: 'l' };
+const PREFIJOS = { fijo: 'f', nombre: 'n', leccion: 'l', palabra: 'p' };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const sha12 = (texto) => crypto.createHash('sha1').update(texto).digest('hex').slice(0, 12);
@@ -43,6 +43,7 @@ const claveCache = (texto) =>
 function recolectarTextos() {
   const { FRASES_FIJAS } = require('./frases-fijas.cjs');
   const { NOMBRES } = require('./nombres-comunes.cjs');
+  const lecTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'secuenciaLecciones.ts'), 'utf8');
 
   // Frases sueltas que usa la app (frases.ts)
   const frasesTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'frases.ts'), 'utf8');
@@ -50,8 +51,37 @@ function recolectarTextos() {
     .map((m) => m[1])
     .filter((t) => /[a-záéíóúñ]{3}/i.test(t));
 
+  // Frases de UI (catálogo único: src/data/frasesVoz.ts)
+  const vozTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'frasesVoz.ts'), 'utf8');
+  const guias = new Set();
+  for (const m of vozTs.matchAll(/:\s*'([^']{4,})'/g)) guias.add(m[1]);
+
+  // Términos sueltos que Léo pronuncia: letras, sílabas y palabras.
+  // Se sacan del currículo y de los juegos para que la lista sea exacta.
+  const terminos = new Set();
+  // objetivos de actividad (vocales, sílabas y palabras del currículo)
+  for (const m of lecTs.matchAll(/objetivo:\s*'([^']+)'/g)) terminos.add(m[1]);
+  // pistas de pronunciación ("aaa como manzana", "ma-ma, despacio ma-ma"...)
+  for (const m of lecTs.matchAll(/pista:\s*'([^']+)'/g)) terminos.add(m[1]);
+  // palabras de los juegos nuevos
+  const juegosTs = ['EscuchaYElige', 'FormarSílabaTrabada', 'PalabrasDesordenadas', 'MemoriaAuditiva', 'TrazoLetra']
+    .map((f) => path.join(RAIZ, 'src', 'components', `${f}.tsx`))
+    .filter((f) => fs.existsSync(f))
+    .map((f) => fs.readFileSync(f, 'utf8'))
+    .join('\n');
+  for (const m of juegosTs.matchAll(/(?:palabra|silaba|texto|sonido):\s*'([^']+)'/g)) terminos.add(m[1]);
+  for (const m of juegosTs.matchAll(/letras:\s*\[([^\]]+)\]/g)) {
+    for (const l of m[1].matchAll(/'([^']+)'/g)) terminos.add(l[1]);
+  }
+  for (const m of juegosTs.matchAll(/fonetica:\s*'([^']+)'/g)) terminos.add(m[1]);
+  // tarjetas de solo lectura
+  const cardTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'curriculum.ts'), 'utf8');
+  for (const m of cardTs.matchAll(/objetivo:\s*'([^']+)',\s*imagen:[^\n]*pista:\s*'([^']+)'/g)) {
+    terminos.add(m[1]);
+    terminos.add(m[2]);
+  }
+
   // Currículo: audioIntro, audioCelebracion, audioFijo, textoTTS
-  const lecTs = fs.readFileSync(path.join(RAIZ, 'src', 'data', 'secuenciaLecciones.ts'), 'utf8');
   const lecciones = new Set();
   for (const m of lecTs.matchAll(/(?:audioIntro|audioCelebracion|audioFijo|textoTTS):\s*'([^']+)'/g)) {
     lecciones.add(m[1]);
@@ -82,16 +112,20 @@ function recolectarTextos() {
   };
 
   // --- Orden de prioridad: lo mas usado primero ---
-  // 1) Frases de_UI del juego (felicitaciones, errores, transiciones)
+  // 1) Frases de UI del juego (felicitaciones, errores, transiciones)
   for (const t of FRASES_FIJAS) push(t, PREFIJOS.fijo);
   for (const t of sueltas) push(t, PREFIJOS.fijo);
-  // 2) Respaldos genericos (nombres que aun no tengan audio propio)
+  // 2) Frases guía de cada actividad (lo que dice al presentar un juego)
+  for (const t of guias) push(t, PREFIJOS.fijo);
+  // 3) Respaldos genericos (nombres que aun no tengan audio propio)
   for (const t of genericas) push(t, PREFIJOS.fijo);
-  // 3) Currículo: intro/celebracion de lección y textos de actividad
+  // 4) Currículo: intro/celebracion de lección y textos de actividad
   for (const t of lecciones) push(t, PREFIJOS.leccion);
-  // 4) Saludo de cada nombre comun
+  // 5) Términos sueltos: letras, sílabas y palabras que Léo pronuncia
+  for (const t of terminos) push(t, PREFIJOS.palabra);
+  // 6) Saludo de cada nombre comun
   for (const n of NOMBRES) push(`¡Hola, ${n}! Vamos a leer juntitos.`, PREFIJOS.nombre);
-  // 5) Feedback con nombre (menos frecuente: solo al leer en voz alta)
+  // 7) Feedback con nombre (menos frecuente: solo al leer en voz alta)
   for (const t of conNombre) {
     if (t.startsWith('¡Hola,')) continue;
     push(t, PREFIJOS.nombre);
@@ -185,6 +219,20 @@ async function main() {
   const lista = recolectarTextos();
   const mapa = leerMapaActual();
   const manifiesto = leerManifiesto();
+
+  // Modo informativo: cuenta qué falta sin generar nada.
+  if (process.argv.includes('--contar')) {
+    const porPref = {};
+    for (const x of lista) porPref[x.prefijo] = (porPref[x.prefijo] || 0) + 1;
+    const faltan = lista.filter((x) => !manifiesto.has(x.texto) || !fs.existsSync(path.join(OUT_DIR, nombreArchivo(x.texto, x.prefijo))));
+    const faltanPorPref = {};
+    for (const x of faltan) faltanPorPref[x.prefijo] = (faltanPorPref[x.prefijo] || 0) + 1;
+    console.log('Textos totales:', lista.length, JSON.stringify(porPref));
+    console.log('Faltan clonar:  ', faltan.length, JSON.stringify(faltanPorPref));
+    const mins = (faltan.length * 21) / 60;
+    console.log(`Tiempo estimado a 21s/texto: ~${mins.toFixed(0)} min (${(mins / 60).toFixed(1)} h)`);
+    return;
+  }
 
   // Saltar lo que ya está clonado (y cuyo archivo exista), salvo --rehacer.
   const pendientes = lista.filter((x) => {
