@@ -106,9 +106,9 @@ function recolectarTextos() {
   ]);
 
   const lista = [];
-  const push = (texto, prefijo) => {
+  const push = (texto, prefijo, minimo = 3) => {
     const t = String(texto).trim();
-    if (t.length >= 3) lista.push({ texto: t, prefijo });
+    if (t.length >= minimo) lista.push({ texto: t, prefijo });
   };
 
   // --- Orden de prioridad: lo mas usado primero ---
@@ -121,8 +121,9 @@ function recolectarTextos() {
   for (const t of genericas) push(t, PREFIJOS.fijo);
   // 4) Currículo: intro/celebracion de lección y textos de actividad
   for (const t of lecciones) push(t, PREFIJOS.leccion);
-  // 5) Términos sueltos: letras, sílabas y palabras que Léo pronuncia
-  for (const t of terminos) push(t, PREFIJOS.palabra);
+  // 5) Términos sueltos: letras, sílabas y palabras que Léo pronuncia.
+  //    minimo 1 porque una letra sola ("A") también se dice en voz alta.
+  for (const t of terminos) push(t, PREFIJOS.palabra, 1);
   // 6) Saludo de cada nombre comun
   for (const n of NOMBRES) push(`¡Hola, ${n}! Vamos a leer juntitos.`, PREFIJOS.nombre);
   // 7) Feedback con nombre (menos frecuente: solo al leer en voz alta)
