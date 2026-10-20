@@ -1,4 +1,4 @@
-﻿import { useState, useCallback, useMemo, type MouseEvent, type TouchEvent } from 'react';
+﻿import { useState, useCallback, useMemo, type PointerEvent as ReactPointerEvent } from 'react';
 import { LETRAS_TRACO, MENSAJES_TRAZO, muestrearTrazo, validarTrazo, type LetraTrazo } from '../lib/trazo';
 import { FRASES_VOZ } from '../data/frasesVoz';
 import { F_BIEN_LECTURA } from '../data/frases';
@@ -48,29 +48,34 @@ export default function TrazoLetra({
     hablarSecuencia([FRASES_VOZ.trazo]);
   }, [hablarSecuencia]);
 
-  const manejarInicio = useCallback((e: TouchEvent | MouseEvent) => {
+  const manejarInicio = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (!actual || completado) return;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* noop */ }
     const rect = e.currentTarget.getBoundingClientRect();
-    const t = 'touches' in e ? e.touches : null;
-    const clientX = t ? t[0].clientX : (e as MouseEvent).clientX;
-    const clientY = t ? t[0].clientY : (e as MouseEvent).clientY;
-    setPuntos([aEspacioLetra(clientX, clientY, rect)]);
+    setPuntos([aEspacioLetra(e.clientX, e.clientY, rect)]);
   }, [actual, completado]);
 
-  const manejarMover = useCallback((e: TouchEvent | MouseEvent) => {
-    if (!actual || completado || puntos.length === 0) return;
+  const manejarMover = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!actual || completado) return;
+    // Ratón: solo con el botón pulsado. Dedo/lápiz: mientras toca la pantalla.
+    if (e.pointerType !== 'touch' && e.buttons !== 1) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const t = 'touches' in e ? e.touches : null;
-    const clientX = t ? t[0].clientX : (e as MouseEvent).clientX;
-    const clientY = t ? t[0].clientY : (e as MouseEvent).clientY;
-    const p = aEspacioLetra(clientX, clientY, rect);
-    const ultimo = puntos[puntos.length - 1];
-    if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 1) return;
-    setPuntos((prev) => [...prev, p]);
-  }, [actual, completado, puntos]);
+    const p = aEspacioLetra(e.clientX, e.clientY, rect);
+    setPuntos((prev) => {
+      if (prev.length === 0) return prev;
+      const ultimo = prev[prev.length - 1];
+      if (Math.hypot(p.x - ultimo.x, p.y - ultimo.y) < 1) return prev;
+      return [...prev, p];
+    });
+  }, [actual, completado]);
 
   const manejarFin = useCallback(() => {
     if (!actual || completado) return;
+    // Un toque sin arrastre no es un intento fallido: no se penaliza.
+    if (puntos.length < 2) {
+      setPuntos([]);
+      return;
+    }
 
     const r = validarTrazo(puntos, actual.d);
     if (r.ok) {
@@ -112,13 +117,10 @@ export default function TrazoLetra({
 
           <div
             id="lienzo-trazo"
-            onTouchStart={manejarInicio}
-            onTouchMove={(e) => { e.preventDefault(); manejarMover(e); }}
-            onTouchEnd={manejarFin}
-            onMouseDown={manejarInicio}
-            onMouseMove={(e) => { if (e.buttons === 1) manejarMover(e); }}
-            onMouseUp={manejarFin}
-            onMouseLeave={(e) => { if (e.buttons === 1) manejarFin(); }}
+            onPointerDown={manejarInicio}
+            onPointerMove={manejarMover}
+            onPointerUp={manejarFin}
+            onPointerCancel={() => setPuntos([])}
             style={{
               width: 'min(88vw, 340px)',
               aspectRatio: '1 / 1',

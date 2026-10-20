@@ -24,7 +24,7 @@ const SILABAS_JUEGO = [
 const PALABRAS_JUEGO = [
   'MAMA', 'PAPA', 'PERA', 'SOL', 'LUNA', 'SOLAR', 'AMOR',
   'CASA', 'SAPO', 'SOPA', 'BEBE', 'TARDE', 'DADO', 'RATA', 'FARO',
-  'EME', 'IMÁN', 'OMAR', 'PRADO', 'TRAN', 'BRAZO', 'CRAN',
+  'EME', 'IMÁN', 'OMAR', 'PRADO', 'BRAZO',
 ];
 
 function tipoObjetivo(objetivo) {
@@ -107,7 +107,7 @@ const PALABRAS_ESCUCHA_Y_ELIGE = [
 
 const INSIGNIAS = [
   'Primera sílaba', 'Primera palabra', 'Primera oración',
-  'Racha de 3 días', 'Racha de 5 días', 'Cinco aciertos', 'Diez aciertos', 'Graduado',
+  'Racha de 3 días', 'Racha de 5 días', 'Cinco aciertos', 'Diez aciertos', 'Sin errores', 'Graduado',
 ];
 
 const ETAPAS = ['vocales', 'silabas', 'palabras', 'repaso'];

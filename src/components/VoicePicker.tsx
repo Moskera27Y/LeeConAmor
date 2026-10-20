@@ -10,6 +10,7 @@ interface Props {
 // Léo tiene una sola voz (Callirrhoe): se muestra insignia fija + probar.
 export default function VoicePicker({ compacto, onProbar }: Props) {
   const [probando, setProbando] = useState(false);
+  const [error, setError] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voz = VOCES[0];
 
@@ -19,6 +20,7 @@ export default function VoicePicker({ compacto, onProbar }: Props) {
       return;
     }
     setProbando(true);
+    setError('');
     try {
       audioRef.current?.pause();
       const r = await fetch('/api/voz', {
@@ -32,12 +34,18 @@ export default function VoicePicker({ compacto, onProbar }: Props) {
           const a = new Audio(`data:${data.mime || 'audio/wav'};base64,${data.audio}`);
           audioRef.current = a;
           a.onended = () => setProbando(false);
-          a.onerror = () => setProbando(false);
+          a.onerror = () => {
+            setProbando(false);
+            setError('El audio no se pudo reproducir. Prueba otra vez.');
+          };
           await a.play();
           return;
         }
       }
-    } catch { /* noop */ }
+      setError('No pudimos probar la voz ahora. Revisa la conexión.');
+    } catch {
+      setError('No pudimos probar la voz ahora. Revisa la conexión.');
+    }
     setProbando(false);
   };
 
@@ -60,6 +68,7 @@ export default function VoicePicker({ compacto, onProbar }: Props) {
       <button type="button" className="ghost-btn" onClick={probarDirecto} disabled={probando}>
         {probando ? '💬 Sonando...' : '▶️ Probar cómo suena'}
       </button>
+      {error && <small style={{ color: '#b23b3b', display: 'block', marginTop: '0.4rem' }}>⚠️ {error}</small>}
     </div>
   );
 }

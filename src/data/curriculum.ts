@@ -58,6 +58,52 @@ export const READING_CARDS: Record<RangeId, { objetivo: string; imagen: string; 
 const PROFILE_KEY = 'leeconamor_profile';
 const PERFILES_KEY = 'leeconamor_perfiles';
 const ACTIVO_KEY = 'leeconamor_activo';
+export const SYNC_PENDIENTE_KEY = 'lee_sync_pendiente';
+export const SYNC_VERSION_KEY = 'lee_sync_version';
+
+// Cada cambio local sube un contador. La sincronización solo limpia el
+// pendiente si no hubo cambios nuevos mientras subía (evita perder avances).
+export function versionSync(): number {
+  try {
+    return Number(localStorage.getItem(SYNC_VERSION_KEY) || 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Marca que hay cambios locales pendientes de subir a la nube.
+export function marcarPendiente() {
+  try {
+    localStorage.setItem(SYNC_PENDIENTE_KEY, '1');
+    localStorage.setItem(SYNC_VERSION_KEY, String(versionSync() + 1));
+  } catch { /* noop */ }
+}
+
+// Borra los datos de los peques de ESTE dispositivo al cerrar sesión. La nube
+// conserva el progreso y lo vuelve a bajar al entrar con la misma cuenta.
+// La preferencia de voz (lee_muted) se mantiene.
+export function limpiarDatosLocales() {
+  try {
+    localStorage.removeItem(PERFILES_KEY);
+    localStorage.removeItem(PROFILE_KEY);
+    localStorage.removeItem(ACTIVO_KEY);
+    localStorage.removeItem(SYNC_PENDIENTE_KEY);
+    localStorage.removeItem(SYNC_VERSION_KEY);
+    localStorage.removeItem('lee_recordar');
+    const prefijos = [
+      'lee_motor_', 'lee_score_', 'lee_prog_', 'lee_graduado_', 'lee_saludo_',
+      'lee_nube_', 'lee_gamificacion_', 'lee_adaptabilidad_',
+    ];
+    const exactas = ['lee_gamificacion', 'lee_adaptabilidad'];
+    const borrar: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (exactas.includes(k) || prefijos.some((p) => k.startsWith(p))) borrar.push(k);
+    }
+    borrar.forEach((k) => localStorage.removeItem(k));
+  } catch { /* noop */ }
+}
 
 function leerLista(): ChildProfile[] {
   try {
@@ -92,6 +138,14 @@ export function loadProfiles(): ChildProfile[] {
   return migrar();
 }
 
+export function idPerfilActivo(): string {
+  try {
+    return localStorage.getItem(ACTIVO_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 export function loadProfile(): ChildProfile | null {
   const lista = migrar();
   try {
@@ -109,6 +163,7 @@ export function saveProfile(p: ChildProfile) {
   localStorage.setItem(PERFILES_KEY, JSON.stringify(lista));
   try {
     localStorage.setItem(ACTIVO_KEY, p.id);
+    marcarPendiente();
   } catch { /* noop */ }
 }
 
@@ -141,6 +196,7 @@ export function loadScore(id: string): number {
 export function saveScore(id: string, v: number) {
   try {
     localStorage.setItem(scoreKey(id), String(v));
+    marcarPendiente();
   } catch { /* noop */ }
 }
 export function loadProgreso(id: string): { done: number; total: number } {
@@ -156,6 +212,7 @@ export function loadProgreso(id: string): { done: number; total: number } {
 export function saveProgreso(id: string, done: number, total: number) {
   try {
     localStorage.setItem(progresoKey(id), JSON.stringify({ done, total }));
+    marcarPendiente();
   } catch { /* noop */ }
 }
 
@@ -177,7 +234,7 @@ export function loadMotor(id: string): EstadoMotor {
 export function saveMotor(id: string, m: EstadoMotor) {
   try {
     localStorage.setItem(motorKey(id), JSON.stringify(m));
-    localStorage.setItem('lee_sync_pendiente', '1');
+    marcarPendiente();
   } catch { /* noop */ }
 }
 export function graduadoKey(id: string): string {
@@ -193,6 +250,6 @@ export function esGraduado(id: string): boolean {
 export function marcarGraduado(id: string) {
   try {
     localStorage.setItem(graduadoKey(id), '1');
-    localStorage.setItem('lee_sync_pendiente', '1');
+    marcarPendiente();
   } catch { /* noop */ }
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { loadProgreso, loadScore, type ChildProfile } from '../data/curriculum';
+import { useEffect, useState } from 'react';
+import { esGraduado, loadMotor, loadScore, type ChildProfile } from '../data/curriculum';
+import { progresoCurso } from '../data/motorNiveles';
 import WelcomeScreen from './WelcomeScreen';
 
 interface Props {
@@ -27,14 +28,22 @@ export default function MenuPeques({
   const [abierto, setAbierto] = useState(false);
   const [nuevo, setNuevo] = useState(false);
 
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [onClose]);
+
   // Pantalla de verificación de adulto (suma fácil)
   if (!abierto) {
     return (
-      <div className="padres-modal-overlay" onClick={onClose}>
+      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Zona de padres">
         <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>🔒 Zona de padres</h2>
-            <button className="btn-cerrar-modal" onClick={onClose}>✕</button>
+            <button className="btn-cerrar-modal" onClick={onClose} aria-label="Cerrar">✕</button>
           </div>
           <p style={{ textAlign: 'center', margin: '0 0 1.5rem', color: '#333' }}>
             Solo adultos: ¿cuánto es <strong>{a} + {b}</strong>?
@@ -67,11 +76,11 @@ export default function MenuPeques({
   // Pantalla de crear nuevo peque
   if (nuevo) {
     return (
-      <div className="padres-modal-overlay" onClick={onClose}>
+      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Nuevo peque">
         <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>➕ Nuevo peque</h2>
-            <button className="btn-cerrar-modal" onClick={() => setNuevo(false)}>✕</button>
+            <button className="btn-cerrar-modal" onClick={() => setNuevo(false)} aria-label="Cerrar">✕</button>
           </div>
           <WelcomeScreen
             onDone={() => {
@@ -89,19 +98,19 @@ export default function MenuPeques({
 
   // Pantalla principal: elegir peque
   return (
-    <div className="padres-modal-overlay" onClick={onClose}>
+    <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Elegir peque">
       <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>👪 ¿Quién aprende ahora?</h2>
-          <button className="btn-cerrar-modal" onClick={onClose}>✕</button>
+          <button className="btn-cerrar-modal" onClick={onClose} aria-label="Cerrar">✕</button>
         </div>
         <p className="padres-sub">Cada peque guarda su propio progreso y puntaje.</p>
 
         <div className="peques-modal-grid">
           {perfiles.map((p) => {
             const sc = loadScore(p.id);
-            const pr = loadProgreso(p.id);
-            const pct = pr.total === 0 ? 0 : Math.round((pr.done / pr.total) * 100);
+            // Progreso real del recorrido guiado (lección + actividad).
+            const pct = esGraduado(p.id) ? 100 : progresoCurso(p.rango, loadMotor(p.id));
             const esActivo = p.id === activoId;
             return (
               <button

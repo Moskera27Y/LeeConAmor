@@ -12,9 +12,9 @@ interface SilabaTrabada {
 
 const SÍLABAS_TRABADAS: SilabaTrabada[] = [
   { id: 'pra', silaba: 'PRA', imagen: '🌾', palabra: 'PRADO', letras: ['P', 'R', 'A'] },
-  { id: 'tra', silaba: 'TRA', imagen: '🚂', palabra: 'TRAN', letras: ['T', 'R', 'A'] },
+  { id: 'tra', silaba: 'TRA', imagen: '🚂', palabra: 'TRAJE', letras: ['T', 'R', 'A'] },
   { id: 'bra', silaba: 'BRA', imagen: '💪', palabra: 'BRAZO', letras: ['B', 'R', 'A'] },
-  { id: 'cra', silaba: 'CRA', imagen: '🦀', palabra: 'CRAN', letras: ['C', 'R', 'A'] },
+  { id: 'cra', silaba: 'CRA', imagen: '🦀', palabra: 'CRAYÓN', letras: ['C', 'R', 'A'] },
   { id: 'gra', silaba: 'GRA', imagen: '🧱', palabra: 'GRADO', letras: ['G', 'R', 'A'] },
   { id: 'fra', silaba: 'FRA', imagen: '🌸', palabra: 'FRASE', letras: ['F', 'R', 'A'] },
   { id: 'dra', silaba: 'DRA', imagen: '🐉', palabra: 'DRAGÓN', letras: ['D', 'R', 'A'] },
@@ -54,6 +54,8 @@ export default function FormarSílabaTrabada({
     const siguiente = formada + letra;
     if (!actual.silaba.startsWith(siguiente)) {
       setResultado('incorrecto');
+      setFormada('');
+      setLetrasUsadas([]);
       speak(F_ERROR_CASI);
       onError();
       return;
@@ -117,7 +119,7 @@ export default function FormarSílabaTrabada({
               <button
                 key={`${l}-${i}`}
                 onClick={() => agregarLetra(l)}
-                disabled={resultado === 'correcto' || formada.length >= actual.silaba.length}
+                disabled={!!resultado || formada.length >= actual.silaba.length}
                 className={`letter-btn ${formada.endsWith(l) && !resultado ? 'selected' : ''}`}
                 style={{ width: '72px', height: '72px', fontSize: '2rem' }}
               >

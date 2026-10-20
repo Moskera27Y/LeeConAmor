@@ -17,3 +17,11 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// PWA: en producción se registra el shell offline. En desarrollo se evita
+// para no interferir con el HMR de Vite.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { leerRecordar, setRecordar, supabase, SUPABASE_ACTIVO } from '../lib/supabase';
 
 interface Props {
   onListo: () => void;
   onClose: () => void;
-  // bloqueado = puerta de entrada: sin botón Volver (login obligatorio)
+  // bloqueado = puerta de entrada: se puede jugar sin cuenta (modo local).
   bloqueado?: boolean;
+  onSinCuenta?: () => void;
 }
 
 // Inicio de sesión y registro de padres: correo+contraseña y Google.
-export default function AuthPadres({ onListo, onClose, bloqueado }: Props) {
+export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }: Props) {
   const [modo, setModo] = useState<'entrar' | 'registro'>('entrar');
   const [email, setEmail] = useState('');
   const [clave, setClave] = useState('');
@@ -17,6 +18,15 @@ export default function AuthPadres({ onListo, onClose, bloqueado }: Props) {
   const [recordar, setRecordarUi] = useState(() => leerRecordar());
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (bloqueado) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [bloqueado, onClose]);
 
   if (!SUPABASE_ACTIVO) {
     return (
@@ -79,7 +89,7 @@ export default function AuthPadres({ onListo, onClose, bloqueado }: Props) {
   };
 
   return (
-    <div className="padres-overlay">
+    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Cuenta de padres">
       <div className="padres-card">
         <h2>👪 Cuenta de padres</h2>
         <p className="padres-sub">Guarda el progreso en la nube y úsalo en varios dispositivos.</p>
@@ -118,6 +128,16 @@ export default function AuthPadres({ onListo, onClose, bloqueado }: Props) {
           <button className="ghost-btn" onClick={conGoogle}>🔵 Seguir con Google</button>
           {!bloqueado && <button className="ghost-btn" onClick={onClose}>Volver</button>}
         </div>
+        {bloqueado && onSinCuenta && (
+          <div className="game-actions">
+            <button className="ghost-btn" onClick={onSinCuenta}>🎈 Jugar sin cuenta (solo este dispositivo)</button>
+          </div>
+        )}
+        {bloqueado && (
+          <p className="privacy-note" style={{ marginTop: '0.8rem' }}>
+            Sin cuenta, el progreso queda solo en este aparato. Puedes crear la cuenta más tarde desde la Zona de padres.
+          </p>
+        )}
       </div>
     </div>
   );

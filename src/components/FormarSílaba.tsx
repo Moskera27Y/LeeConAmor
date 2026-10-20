@@ -40,12 +40,13 @@ export default function FormarSílaba({
       return;
     }
     setFormada(siguiente);
-    speak(letra);
     if (!objetivo.startsWith(siguiente)) {
       setResultado('incorrecto');
       speak(F_ERROR_CASI);
       onError();
+      return;
     }
+    speak(letra);
   };
 
   const borrar = () => {
@@ -78,7 +79,7 @@ export default function FormarSílaba({
           <button
             key={l}
             onClick={() => agregarLetra(l)}
-            disabled={resultado || formada.length >= objetivo.length}
+            disabled={resultado !== null || formada.length >= objetivo.length}
             className="letter-btn"
             style={{ width: '72px', height: '72px', fontSize: '2rem' }}
           >
@@ -89,7 +90,7 @@ export default function FormarSílaba({
       <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
         <button
           onClick={borrar}
-          disabled={formada.length === 0 || resultado}
+          disabled={formada.length === 0 || resultado !== null}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
@@ -97,11 +98,11 @@ export default function FormarSílaba({
         </button>
         <button
           onClick={reiniciar}
-          disabled={resultado}
+          disabled={resultado === 'correcto'}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
-          🔄 Reiniciar
+          {resultado === 'incorrecto' ? '🔄 Reintentar' : '🔄 Reiniciar'}
         </button>
       </div>
     </div>

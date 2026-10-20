@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { F_BIEN_LECTURA, F_ERROR_CASI } from '../data/frases';
 import { FRASES_VOZ } from '../data/frasesVoz';
 
@@ -27,16 +27,33 @@ interface Props {
   onCorrecto: () => void;
   onError: () => void;
   isSpeaking: boolean;
+  sinVoz?: boolean;
 }
 
 export default function MemoriaAuditiva({
-  speak, hablarSecuencia, onCorrecto, onError, isSpeaking,
+  speak, hablarSecuencia, onCorrecto, onError, isSpeaking, sinVoz = false,
 }: Props) {
   const [secuencia, setSecuencia] = useState<string[]>([]);
   const [turnoUsuario, setTurnoUsuario] = useState<number>(0);
   const [resultado, setResultado] = useState<'correcto' | 'incorrecto' | null>(null);
   const [reproduciendo, setReproduciendo] = useState(false);
   const [nivel, setNivel] = useState(1);
+  const [pistaVisible, setPistaVisible] = useState(false);
+  const timers = useRef<number[]>([]);
+
+  const NIVEL_MAX = 6;
+
+  const programar = (fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    timers.current.push(id);
+  };
+
+  useEffect(() => {
+    return () => {
+      timers.current.forEach((id) => window.clearTimeout(id));
+      timers.current = [];
+    };
+  }, []);
 
   const textoDe = useCallback((id: string) => SONIDOS.find((s) => s.id === id)?.texto || id, []);
 
@@ -51,6 +68,7 @@ export default function MemoriaAuditiva({
   const iniciarSecuencia = useCallback(async (nivelActual: number) => {
     setResultado(null);
     setTurnoUsuario(0);
+    setPistaVisible(sinVoz);
     const nuevaSecuencia: string[] = [];
     for (let i = 0; i < nivelActual; i++) {
       const sonido = SONIDOS[Math.floor(Math.random() * SONIDOS.length)];
@@ -59,7 +77,7 @@ export default function MemoriaAuditiva({
     setSecuencia(nuevaSecuencia);
     // Habla la instrucción y luego la secuencia completa, sin cortarse.
     await reproducir(nuevaSecuencia, true);
-  }, [reproducir]);
+  }, [reproducir, sinVoz]);
 
   const repetir = () => {
     if (reproduciendo || !secuencia.length) return;
@@ -75,10 +93,10 @@ export default function MemoriaAuditiva({
       if (turnoUsuario + 1 >= secuencia.length) {
         setResultado('correcto');
         speak(F_BIEN_LECTURA);
-        const siguienteNivel = nivel + 1;
+        const siguienteNivel = Math.min(NIVEL_MAX, nivel + 1);
         setNivel(siguienteNivel);
         onCorrecto();
-        setTimeout(() => {
+        programar(() => {
           setResultado(null);
           iniciarSecuencia(siguienteNivel);
         }, 1800);
@@ -87,7 +105,7 @@ export default function MemoriaAuditiva({
       setResultado('incorrecto');
       speak(F_ERROR_CASI);
       onError();
-      setTimeout(() => {
+      programar(() => {
         setResultado(null);
         setNivel(1);
         iniciarSecuencia(1);
@@ -100,13 +118,18 @@ export default function MemoriaAuditiva({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setPistaVisible(sinVoz && secuencia.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinVoz]);
+
   return (
     <div className="memoria-auditiva" style={{ textAlign: 'center', padding: '1rem' }}>
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 1rem' }}>
         {resultado ? (resultado === 'correcto' ? '¡Correcto!' : 'Intenta otra vez') : reproduciendo ? 'Escucha la secuencia…' : 'Memoriza y repite'}
       </p>
       <p style={{ fontSize: '1rem', color: '#666', margin: '0 0 1rem' }}>
-        Nivel {nivel} · Recuerda {secuencia.length} sonido{secuencia.length !== 1 ? 's' : ''}
+        Nivel {nivel}/{NIVEL_MAX} · Recuerda {secuencia.length} sonido{secuencia.length !== 1 ? 's' : ''}
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
@@ -133,14 +156,44 @@ export default function MemoriaAuditiva({
         ))}
       </div>
 
-      <button
-        className="listen-btn"
-        onClick={repetir}
-        disabled={reproduciendo || !secuencia.length}
-        style={{ marginBottom: '1rem', minHeight: '48px' }}
-      >
-        {reproduciendo ? '🦉 Escuchando…' : '🔁 Repetir'}
-      </button>
+      <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <button
+          className="listen-btn"
+          onClick={repetir}
+          disabled={reproduciendo || !secuencia.length || sinVoz}
+          style={{ minHeight: '48px' }}
+        >
+          {reproduciendo ? '🦉 Escuchando…' : '🔁 Repetir'}
+        </button>
+        {sinVoz && (
+          <button
+            className="ghost-btn"
+            onClick={() => setPistaVisible((v) => !v)}
+            disabled={!secuencia.length}
+            style={{ minHeight: '48px' }}
+          >
+            {pistaVisible ? '🙈 Ocultar pista' : '👀 Ver pista'}
+          </button>
+        )}
+      </div>
+
+      {sinVoz && pistaVisible && secuencia.length > 0 && (
+        <div style={{ marginBottom: '0.8rem' }} aria-label="Pista visual de la secuencia">
+          <p style={{ color: '#666', fontSize: '0.9rem', margin: '0 0 0.4rem' }}>
+            Voz apagada: mira la secuencia y luego repítela.
+          </p>
+          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {secuencia.map((id, i) => {
+              const s = SONIDOS.find((x) => x.id === id);
+              return (
+                <span key={`${id}-${i}`} className="memoria-pista" style={{ fontSize: '1.8rem' }}>
+                  {s?.emoji || id}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {!secuencia.length && !reproduciendo && !resultado && (
         <p style={{ color: '#666', fontSize: '0.9rem' }}>Preparando secuencia…</p>

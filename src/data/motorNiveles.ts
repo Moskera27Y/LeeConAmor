@@ -241,7 +241,12 @@ export function asegurarLeccionInicial(
   if (etapaEval && rangoEtapas.includes(etapaEval)) etapa = etapaEval;
 
   const lecciones = obtenerLeccionesEtapa(rango, etapa);
-  const primera = lecciones[0];
+  // Si la evaluación recomienda una subetapa concreta (p. ej. trabadas),
+  // empieza por su primera lección en vez de por el inicio del bloque.
+  const especifica = evaluacion?.etapaRecomendada
+    ? lecciones.find((l) => l.etapa === evaluacion.etapaRecomendada)
+    : undefined;
+  const primera = especifica || lecciones[0];
   if (!primera) {
     // Ese rango no tiene lecciones para la etapa: usa la primera disponible.
     const cualquiera = SECUENCIA_LECCIONES[rango][0];
@@ -249,8 +254,8 @@ export function asegurarLeccionInicial(
     return { ...estado, leccionId: cualquiera.id, actividadIdx: 0 };
   }
   const n = estado.n ?? 0;
-  const orden = Math.min(n, Math.max(0, lecciones.length - 1));
-  const leccion = lecciones[orden] || primera;
+  const orden = especifica ? -1 : Math.min(n, Math.max(0, lecciones.length - 1));
+  const leccion = especifica || lecciones[orden] || primera;
   return { ...estado, etapa, leccionId: leccion.id, actividadIdx: 0 };
 }
 
@@ -291,8 +296,17 @@ export function avanzarActividad(estado: EstadoMotor, rango: RangeId): EstadoMot
     const todas = SECUENCIA_LECCIONES[rango];
     const idxLeccion = todas.findIndex((l) => l.id === estado.leccionId);
     if (idxLeccion === -1 || idxLeccion >= todas.length - 1) {
-      // Última lección del rango: reiniciar el ciclo desde la primera.
-      return { ...estado, leccionId: todas[0]?.id, actividadIdx: 0, n: 0 };
+      // Última lección del rango: reiniciar el ciclo desde la primera,
+      // sincronizando también la etapa para que el repaso no quede marcado
+      // como "Oraciones" mientras muestra la lección de vocales.
+      const primera = todas[0];
+      return {
+        ...estado,
+        etapa: (primera && etapaDeLeccion(rango, primera.etapa)) || 'vocales',
+        leccionId: primera?.id,
+        actividadIdx: 0,
+        n: 0,
+      };
     }
     const siguienteLeccion = todas[idxLeccion + 1];
     // Al cambiar de bloque de lecciones, la etapa del motor se sincroniza.
@@ -323,5 +337,48 @@ export function retrocerActividad(estado: EstadoMotor): EstadoMotor {
     return { ...estado, actividadIdx: estado.actividadIdx - 1 };
   }
   return estado;
+}
+
+// Letras (sin acentos, únicas) que forman el objetivo de una actividad.
+// Sirve para actualizar el dominio por letra en el recorrido guiado.
+export function letrasDeObjetivo(objetivo: string): string[] {
+  const limpias = String(objetivo || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-ZÑ]/g, '');
+  return [...new Set(limpias.split(''))];
+}
+
+export function indiceLeccionGlobal(rango: RangeId, leccionId?: string): number {
+  if (!leccionId) return -1;
+  return SECUENCIA_LECCIONES[rango].findIndex((l) => l.id === leccionId);
+}
+
+export function numeroLeccionActual(rango: RangeId, motor: EstadoMotor): number {
+  const idx = indiceLeccionGlobal(rango, motor.leccionId);
+  if (idx >= 0) return idx + 1;
+  return Math.max(1, Math.min(obtenerTotalLecciones(rango), motor.n + 1));
+}
+
+export function esUltimaLeccion(rango: RangeId, motor: EstadoMotor): boolean {
+  const idx = indiceLeccionGlobal(rango, motor.leccionId);
+  return idx >= 0 && idx === SECUENCIA_LECCIONES[rango].length - 1;
+}
+
+// Progreso 0-100 del recorrido guiado (lección + actividad actual). Si el
+// peque aún no tiene lección asignada, usa el avance clásico por etapas.
+export function progresoCurso(rango: RangeId, motor: EstadoMotor): number {
+  const total = obtenerTotalLecciones(rango);
+  const idx = indiceLeccionGlobal(rango, motor.leccionId);
+  if (idx >= 0 && total > 0) {
+    const actividades = SECUENCIA_LECCIONES[rango][idx]?.actividades.length || 1;
+    const actIdx = Math.max(0, Math.min(actividades, motor.actividadIdx ?? 0));
+    return Math.min(100, Math.round(((idx + actIdx / actividades) / total) * 100));
+  }
+  const etapas = ETAPAS_POR_RANGO[rango];
+  const etapaIdx = Math.max(0, etapas.indexOf(motor.etapa));
+  const pasosPorEtapa = 6;
+  return Math.min(100, Math.round(((etapaIdx * pasosPorEtapa + Math.min(motor.n, pasosPorEtapa)) / (etapas.length * pasosPorEtapa)) * 100));
 }
 

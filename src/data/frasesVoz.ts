@@ -33,7 +33,7 @@ export const SILABAS_JUEGO = [
 export const PALABRAS_JUEGO = [
   'MAMA', 'PAPA', 'PERA', 'SOL', 'LUNA', 'SOLAR', 'AMOR',
   'CASA', 'SAPO', 'SOPA', 'BEBE', 'TARDE', 'DADO', 'RATA', 'FARO',
-  'EME', 'IMÁN', 'OMAR', 'PRADO', 'TRAN', 'BRAZO', 'CRAN',
+  'EME', 'IMÁN', 'OMAR', 'PRADO', 'BRAZO',
 ];
 
 export type TipoObjetivo = 'vocal' | 'letra' | 'silaba' | 'palabra' | 'oracion';

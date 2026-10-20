@@ -18,38 +18,80 @@ export function leerRecordar(): boolean {
 export function setRecordar(v: boolean) {
   try {
     localStorage.setItem('lee_recordar', v ? '1' : '0');
+    if (!v) {
+      // Al desactivar "recordar", no dejamos tokens de Supabase viejos en
+      // localStorage: la sesión nueva vivirá solo en memoria.
+      const borrar: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('sb-')) borrar.push(k);
+      }
+      borrar.forEach((k) => localStorage.removeItem(k));
+    }
   } catch { /* noop */ }
 }
 
 let cliente: SupabaseClient | null = null;
-let sesionPersistida = true;
+// Se respeta la preferencia guardada desde el primer arranque; antes, al
+// recargar, se volvía a leer la sesión persistida aunque el adulto hubiera
+// desmarcado "recordar sesión".
+let sesionPersistida = leerRecordar();
 
 export function supabase(recordarSesion?: boolean): SupabaseClient | null {
   if (!SUPABASE_ACTIVO) return null;
+  const recordar = recordarSesion ?? sesionPersistida;
   // La preferencia de "recordar sesión" cambia el almacenamiento: hay que recrear el cliente.
-  if (recordarSesion !== undefined && recordarSesion !== sesionPersistida) {
-    sesionPersistida = recordarSesion;
+  if (recordar !== sesionPersistida) {
+    // Al cambiar de almacenamiento se cierra el cliente anterior para que no
+    // siga refrescando/escribiendo la sesión en el lugar equivocado.
+    try { void cliente?.auth.signOut(); } catch { /* noop */ }
+    sesionPersistida = recordar;
     cliente = null;
   }
   if (!cliente) {
-    cliente = createClient(URL as string, ANON as string, {
-      auth: {
-        storage: recordarSesion === false ? memoryStorage() : localStorage,
-        persistSession: recordarSesion !== false,
-        autoRefreshToken: true,
-      },
-    });
+    try {
+      cliente = createClient(URL as string, ANON as string, {
+        auth: {
+          // El verificador PKCE debe sobrevivir al redirect de Google aunque
+          // la sesión no se persista; si no, el callback no puede canjearlo.
+          storage: recordar ? localStorage : memoryStorageConPKCE(),
+          persistSession: recordar,
+          autoRefreshToken: true,
+        },
+      });
+    } catch {
+      // URL/clave mal configuradas: la app sigue funcionando en modo local.
+      return null;
+    }
   }
   return cliente;
 }
 
-// Guardado en memoria (se pierde al cerrar la pestaña) cuando el adulto apaga "recordar".
-function memoryStorage() {
-  let cache: Record<string, string> = {};
+// Guardado en memoria (se pierde al cerrar la pestaña) cuando el adulto apaga
+// "recordar". Excepción: el verificador PKCE de OAuth se guarda en
+// localStorage porque debe sobrevivir al redirect de Google; no es un token.
+function memoryStorageConPKCE() {
+  const cache: Record<string, string> = {};
+  const esVerificador = (k: string) => k.endsWith('-code-verifier');
   return {
-    getItem: (k: string) => (k in cache ? cache[k] : null),
-    setItem: (k: string, v: string) => { cache[k] = String(v); },
-    removeItem: (k: string) => { delete cache[k]; },
+    getItem: (k: string) => {
+      if (esVerificador(k)) {
+        try { return localStorage.getItem(k); } catch { return null; }
+      }
+      return k in cache ? cache[k] : null;
+    },
+    setItem: (k: string, v: string) => {
+      if (esVerificador(k)) {
+        try { localStorage.setItem(k, String(v)); return; } catch { /* noop */ }
+      }
+      cache[k] = String(v);
+    },
+    removeItem: (k: string) => {
+      if (esVerificador(k)) {
+        try { localStorage.removeItem(k); return; } catch { /* noop */ }
+      }
+      delete cache[k];
+    },
   };
 }
 

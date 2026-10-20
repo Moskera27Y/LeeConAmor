@@ -28,6 +28,8 @@ create table if not exists progreso (
   score integer default 0,
   leccion_id text,
   actividad_idx integer,
+  gamificacion jsonb,
+  adaptabilidad jsonb,
   updated_at timestamptz default now()
 );
 
@@ -35,6 +37,9 @@ create table if not exists progreso (
 -- Es idempotente: se puede volver a pegar este schema sin romper nada.
 alter table progreso add column if not exists leccion_id text;
 alter table progreso add column if not exists actividad_idx integer;
+-- Insignias, racha y adaptabilidad por peque (sincronización entre equipos).
+alter table progreso add column if not exists gamificacion jsonb;
+alter table progreso add column if not exists adaptabilidad jsonb;
 
 create table if not exists sesiones (
   id uuid primary key default gen_random_uuid(),

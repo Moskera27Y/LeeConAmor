@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { VOZ_UNICA, getVoz, setVoz } from '../data/voces';
 import { AUDIO_FIJO } from '../data/audioFijo';
 import { textoHablado } from '../data/textoVoz';
@@ -129,6 +129,25 @@ export function useVoice(enabled: boolean) {
     speakNativo(texto, () => setIsSpeaking(true), () => setIsSpeaking(false));
   }, []);
 
+  // Voz nativa esperando su final real (antes se asumían 1500 ms fijos y se
+  // cortaba la app aunque la frase siguiera sonando).
+  const sonarNativaYEsperar = useCallback((texto: string) => {
+    return new Promise<void>((resolve) => {
+      if (!esNavegador()) return resolve();
+      let terminado = false;
+      const fin = () => {
+        if (terminado) return;
+        terminado = true;
+        setIsSpeaking(false);
+        resolve();
+      };
+      setFuente('nativa');
+      setIsSpeaking(true);
+      speakNativo(texto, () => setIsSpeaking(true), fin);
+      setTimeout(fin, Math.min(12000, Math.max(2200, texto.length * 100)));
+    });
+  }, []);
+
   const reproducirUrl = useCallback(
     (url: string, textoRespaldo: string, turno: number) => {
       if (turno !== turnoRef.current) return; // una voz más nueva tomó el turno
@@ -178,9 +197,13 @@ export function useVoice(enabled: boolean) {
         lastAudio.current = { url: fijo, texto: corto, voz };
         return fijo;
       }
+      let timeoutId: number | undefined;
       try {
         const ctrl = new AbortController();
         fetchCtrl.current = ctrl;
+        // Si el clon no responde, se cae a la voz nativa en vez de dejar la
+        // interfaz esperando hasta el límite del servidor.
+        timeoutId = window.setTimeout(() => ctrl.abort(), 25000);
         const r = await fetch('/api/voz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -211,6 +234,8 @@ export function useVoice(enabled: boolean) {
         if (err?.name === 'AbortError') return null; // cancelado por una voz nueva
         if (turno === turnoRef.current) setMotivo('apagado');
         return null;
+      } finally {
+        if (timeoutId) window.clearTimeout(timeoutId);
       }
     },
     []
@@ -255,12 +280,12 @@ export function useVoice(enabled: boolean) {
         const corto = textoHablado(t).slice(0, 160);
         lastText.current = corto;
         const url = await resolverAudio(corto, voz, turno);
-        if (turno !== turnoRef.current || !url) {
-          // Ultimo recurso: voz del navegador
-          setFuente('nativa');
+        if (turno !== turnoRef.current) return false;
+        if (!url) {
+          // Ultimo recurso: voz del navegador (se espera a que termine)
           setMotivo(null);
-          sonarNativa(corto);
-          await new Promise((r) => setTimeout(r, 1500));
+          await sonarNativaYEsperar(corto);
+          if (turno !== turnoRef.current) return false;
           continue;
         }
         setFuente('clon');
@@ -300,7 +325,7 @@ export function useVoice(enabled: boolean) {
       }
       return true;
     },
-    [enabled, muted, resolverAudio, stopTodoBase, sonarNativa]
+    [enabled, muted, resolverAudio, stopTodoBase, sonarNativaYEsperar]
   );
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
@@ -319,13 +344,17 @@ export function useVoice(enabled: boolean) {
   }, [speak]);
 
   const repeat = useCallback(() => {
+    if (!enabled || muted) return;
     setNecesitaToque(false);
     if (lastAudio.current) {
-      reproducirUrl(lastAudio.current.url, lastAudio.current.texto, turnoRef.current);
+      // Turno nuevo: si había otra voz sonando, esta la reemplaza de verdad.
+      const turno = turnoRef.current + 1;
+      turnoRef.current = turno;
+      reproducirUrl(lastAudio.current.url, lastAudio.current.texto, turno);
       return;
     }
     if (lastText.current) speak(lastText.current);
-  }, [speak, reproducirUrl]);
+  }, [enabled, muted, speak, reproducirUrl]);
 
   const cambiarVoz = useCallback(
     (_id: string) => {

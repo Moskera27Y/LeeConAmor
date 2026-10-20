@@ -6,6 +6,7 @@
 
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
+import { permitirPeticion, responderLimite } from './_limite';
 
 export const config = {
   api: { bodyParser: false },
@@ -87,6 +88,11 @@ function providerHasKey(p: string): boolean {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+  // 10 transcripciones por minuto y IP: este endpoint cuesta cuota real.
+  if (!permitirPeticion(req, 10)) {
+    responderLimite(res);
     return;
   }
   let audioPath = '';

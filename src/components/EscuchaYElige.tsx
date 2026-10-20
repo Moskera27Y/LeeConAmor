@@ -16,6 +16,7 @@ interface Props {
   onCorrecto: () => void;
   onError: () => void;
   isSpeaking: boolean;
+  sinVoz?: boolean;
 }
 
 const OPCIONES_3_5: OpcionImagen[] = [
@@ -41,7 +42,7 @@ const OPCIONES_6_8: OpcionImagen[] = [
 ];
 
 export default function EscuchaYElige({
-  rango, speak, hablarSecuencia, onCorrecto, onError, isSpeaking,
+  rango, speak, hablarSecuencia, onCorrecto, onError, isSpeaking, sinVoz = false,
 }: Props) {
   const [opciones, setOpciones] = useState<OpcionImagen[]>([]);
   const [seleccionada, setSeleccionada] = useState<string | null>(null);
@@ -104,10 +105,19 @@ export default function EscuchaYElige({
     iniciarRonda();
   };
 
+  // Si falla, se repite la MISMA imagen (no se salta a una ronda nueva).
+  const reintentar = () => {
+    if (!objetivoActual) return;
+    setResultado(null);
+    setSeleccionada(null);
+    setEscuchado(true);
+    hablarObjetivo(objetivoActual);
+  };
+
   return (
     <div className="escucha-elige" style={{ textAlign: 'center', padding: '1rem' }}>
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 1rem' }}>
-        {resultado ? (resultado === 'correcto' ? '¡Correcto!' : 'Intenta otra vez') : escuchando ? 'Escucha a Léo…' : escuchado ? 'Toca la imagen que dijo Léo' : 'Toca 🔊 para empezar'}
+        {resultado ? (resultado === 'correcto' ? '¡Correcto!' : 'Intenta otra vez') : escuchando ? 'Escucha a Léo…' : escuchado ? (sinVoz && objetivoActual ? `Toca: ${objetivoActual.nombre}` : 'Toca la imagen que dijo Léo') : 'Toca 🔊 para empezar'}
       </p>
 
       <button
@@ -161,7 +171,12 @@ export default function EscuchaYElige({
 
       {resultado && (
         <div style={{ marginTop: '1.2rem', textAlign: 'center' }}>
-          <button className="next-btn" onClick={siguienteRonda} disabled={isSpeaking} style={{ minHeight: '52px' }}>
+          <button
+            className="next-btn"
+            onClick={resultado === 'correcto' ? siguienteRonda : reintentar}
+            disabled={isSpeaking}
+            style={{ minHeight: '52px' }}
+          >
             {resultado === 'correcto' ? '➡️ Otra ronda' : '🔄 Intentar otra vez'}
           </button>
         </div>

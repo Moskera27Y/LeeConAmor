@@ -4,12 +4,7 @@ import BotMessage from './BotMessage';
 import { ABECEDARIO } from '../data/motorNiveles';
 import { F_ERROR_CASI, F_NIVEL_OK } from '../data/frases';
 import { fraseToca } from '../data/frasesVoz';
-
-declare global {
-  interface Window {
-    confetti?: (...args: any[]) => void;
-  }
-}
+import { petardos } from '../lib/confetti';
 
 interface Props {
   levels: Level[];
@@ -37,15 +32,8 @@ function barajar<T>(lista: T[]): T[] {
   return copia;
 }
 
-async function boomConfetti(colores?: string[]) {
-  try {
-    if (typeof window !== 'undefined' && window.confetti) {
-      window.confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 }, colors: colores });
-      return;
-    }
-    const mod = await import('canvas-confetti');
-    mod.default({ particleCount: 30, spread: 60, origin: { y: 0.7 }, colors: colores });
-  } catch { /* noop */ }
+function boomConfetti(colores?: string[]) {
+  return petardos({ particleCount: 30, spread: 60, origin: { y: 0.7 }, colors: colores });
 }
 
 export default function LetterGame({

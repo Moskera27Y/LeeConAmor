@@ -27,9 +27,10 @@ export async function consultarRecomendacionIA(
     clearTimeout(timer);
     if (!r.ok) return null;
     const data = (await r.json()) as RespuestaIA;
-    if (typeof data?.nivelRecomendado !== 'object' && data?.nivelRecomendado === null && data?.etapaRecomendada === null) {
-      return null;
-    }
+    const tieneNivel = typeof data?.nivelRecomendado === 'number' && Number.isFinite(data.nivelRecomendado);
+    const tieneEtapa = typeof data?.etapaRecomendada === 'string' && data.etapaRecomendada.trim().length > 0;
+    const tieneObs = Array.isArray(data?.observaciones) && data.observaciones.length > 0;
+    if (!tieneNivel && !tieneEtapa && !tieneObs) return null;
     return data;
   } catch {
     return null;

@@ -44,6 +44,13 @@ export default function EscucharYTocar({
     }
   };
 
+  // Reintento real: no cambia de objetivo, solo vuelve a habilitar las opciones.
+  const reintentar = () => {
+    setSeleccionada(null);
+    setResultado(null);
+    setEscuchado(true);
+  };
+
   return (
     <div className="escuchar-tocar" style={{ textAlign: 'center', padding: '1rem' }}>
       <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#333', margin: '0 0 1rem' }}>
@@ -62,7 +69,7 @@ export default function EscucharYTocar({
           <button
             key={op}
             onClick={() => tocar(op)}
-            disabled={resultado || !escuchado || isSpeaking}
+            disabled={resultado !== null || !escuchado || isSpeaking}
             className={`letter-btn ${seleccionada === op ? (resultado === 'correcto' ? 'selected' : '') : ''} ${resultado === 'incorrecto' && seleccionada === op ? 'wrong' : ''}`}
             style={{ width: '88px', height: '88px', fontSize: '2rem' }}
           >
@@ -70,6 +77,11 @@ export default function EscucharYTocar({
           </button>
         ))}
       </div>
+      {resultado === 'incorrecto' && (
+        <button className="retry-btn" onClick={reintentar} style={{ marginTop: '1rem', minHeight: '48px' }}>
+          🔄 Intentar otra vez
+        </button>
+      )}
     </div>
   );
 }

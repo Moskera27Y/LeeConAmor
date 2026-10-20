@@ -1,0 +1,33 @@
+{
+  "name": "LeeConAmor - Aprender a leer con amor",
+  "short_name": "LeeConAmor",
+  "description": "Juegos de lectura guiada para peques de 3 a 8 años, con voz suave y progreso adaptado.",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f4fd",
+  "theme_color": "#7b6cf0",
+  "categories": ["education", "kids"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

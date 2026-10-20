@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface Props {
   texto: string;
@@ -6,26 +6,50 @@ interface Props {
   hablarSecuencia: (t: string[]) => Promise<boolean>;
   onTerminado: () => void;
   isSpeaking: boolean;
+  detener?: () => void;
+  muted?: boolean;
 }
 
 export default function Storytime({
-  texto, speak, hablarSecuencia, onTerminado, isSpeaking,
+  texto, speak, hablarSecuencia, onTerminado, isSpeaking, detener, muted,
 }: Props) {
   const [palabraActiva, setPalabraActiva] = useState<number | null>(null);
   const [terminado, setTerminado] = useState(false);
   const [leyendo, setLeyendo] = useState(false);
   const avisado = useRef(false);
+  const cancelado = useRef(false);
+  const generacion = useRef(0);
   const palabras = texto.split(/\s+/).filter(Boolean);
+
+  // Si el cuento cambia o el componente se desmonta, se invalida la lectura
+  // anterior y se permite volver a completar. Sin esto, el segundo cuento
+  // nunca llamaba a onTerminado y la voz seguía al cambiar de pestaña.
+  useEffect(() => {
+    generacion.current += 1;
+    cancelado.current = true;
+    avisado.current = false;
+    setTerminado(false);
+    setLeyendo(false);
+    setPalabraActiva(null);
+    return () => {
+      generacion.current += 1;
+      cancelado.current = true;
+      detener?.();
+    };
+  }, [texto, detener]);
 
   const leerTodo = useCallback(async () => {
     if (leyendo) return;
+    const miGeneracion = ++generacion.current;
+    cancelado.current = false;
     setLeyendo(true);
     setTerminado(false);
     for (let i = 0; i < palabras.length; i++) {
+      if (cancelado.current || generacion.current !== miGeneracion) break;
       setPalabraActiva(i);
       // Cada palabra espera a que termine su audio: sin cortes ni traslapes.
       const ok = await hablarSecuencia([palabras[i]]);
-      if (!ok) {
+      if (!ok || cancelado.current || generacion.current !== miGeneracion) {
         setPalabraActiva(null);
         setLeyendo(false);
         return;
@@ -34,11 +58,33 @@ export default function Storytime({
     setPalabraActiva(null);
     setLeyendo(false);
     setTerminado(true);
-    if (!avisado.current) {
+    if (!avisado.current && !cancelado.current && generacion.current === miGeneracion) {
       avisado.current = true;
       onTerminado();
     }
   }, [palabras, hablarSecuencia, leyendo, onTerminado]);
+
+  const parar = () => {
+    generacion.current += 1;
+    cancelado.current = true;
+    detener?.();
+    setLeyendo(false);
+    setPalabraActiva(null);
+  };
+
+  // Salida accesible: con la voz silenciada o sin audio disponible, el peque
+  // (o el adulto) puede confirmar que terminó de leer sin quedar bloqueado.
+  const terminarManual = () => {
+    if (avisado.current) return;
+    generacion.current += 1;
+    cancelado.current = true;
+    detener?.();
+    setLeyendo(false);
+    setPalabraActiva(null);
+    setTerminado(true);
+    avisado.current = true;
+    onTerminado();
+  };
 
   return (
     <div className="storytime" style={{ textAlign: 'center', margin: '1rem 0' }}>
@@ -69,11 +115,21 @@ export default function Storytime({
       <button
         className="listen-btn"
         onClick={leerTodo}
-        disabled={leyendo}
+        disabled={leyendo || muted}
         style={{ minHeight: '48px' }}
       >
-        {leyendo ? '🦉 Leyendo…' : '🔊 Leer el cuento'}
+        {muted ? '🔇 Voz silenciada' : leyendo ? '🦉 Leyendo…' : '🔊 Leer el cuento'}
       </button>
+      {leyendo && !muted && (
+        <button className="ghost-btn" onClick={parar} style={{ marginLeft: '0.6rem', minHeight: '48px' }}>
+          ⏹ Parar
+        </button>
+      )}
+      {!leyendo && !terminado && (
+        <button className="ghost-btn" onClick={terminarManual} style={{ marginLeft: '0.6rem', minHeight: '48px' }}>
+          ✅ Ya lo leí
+        </button>
+      )}
       {terminado && (
         <div style={{ marginTop: '1rem' }}>
           <p style={{ color: '#28a745', fontWeight: '800' }}>¡Cuento terminado!</p>

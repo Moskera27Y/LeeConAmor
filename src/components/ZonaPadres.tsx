@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import VoicePicker from './VoicePicker';
 import MapaDominio from './MapaDominio';
 import type { EstadoMotor } from '../data/motorNiveles';
@@ -27,6 +27,9 @@ interface Props {
   onSalirNube: () => void;
   score?: number;
   progreso?: { done: number; total: number };
+  leccionNum?: number;
+  totalLecciones?: number;
+  pctCurso?: number;
 }
 
 // Zona solo para papá/mamá: primero una suma fácil que el peque no resuelve.
@@ -37,9 +40,17 @@ export default function ZonaPadres(p: Props) {
   const [abierto, setAbierto] = useState(false);
   const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>( 'resumen');
 
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') p.onClose();
+    };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [p.onClose]);
+
   if (!abierto) {
     return (
-      <div className="padres-overlay">
+      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres">
         <div className="padres-card">
           <h2>🔒 Zona de padres</h2>
           <p>Solo adultos: ¿cuánto es {a} + {b}?</p>
@@ -49,6 +60,7 @@ export default function ZonaPadres(p: Props) {
             value={resp}
             onChange={(e) => setResp(e.target.value)}
             placeholder="Respuesta"
+            autoFocus
           />
           <div className="game-actions">
             <button
@@ -86,11 +98,17 @@ export default function ZonaPadres(p: Props) {
           'Practica la lectura de sílabas trabadas (PRA, TRA, BRA) con palabras como "prado" o "brazo".',
         ];
 
+  const nombreFuente = p.fuente === 'clon' ? 'suave' : p.fuente === 'nativa' ? 'básica' : 'sin voz';
+  const etapaNombre = p.motor.etapa === 'vocales' ? 'Vocales'
+    : p.motor.etapa === 'silabas' ? 'Sílabas'
+    : p.motor.etapa === 'palabras' ? 'Palabras'
+    : 'Oraciones';
+
   return (
-    <div className="padres-overlay">
+    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres">
       <div className="padres-card">
         <h2>👪 Zona de padres</h2>
-        <p className="padres-sub">{p.avatar} {p.nombre} · {p.rango === '3-5' ? '3-5 Pre-lector' : '6-8 Silábico'} · voz {p.fuente === 'nativa' ? 'básica' : 'suave'}</p>
+        <p className="padres-sub">{p.avatar} {p.nombre} · {p.rango === '3-5' ? '3-5 Pre-lector' : '6-8 Silábico'} · voz {nombreFuente}</p>
 
         <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <button
@@ -119,19 +137,32 @@ export default function ZonaPadres(p: Props) {
             <div style={{ background: '#f7f4fd', borderRadius: '14px', padding: '1rem', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span>Etapa actual:</span>
-                <strong>{p.motor.etapa}</strong>
+                <strong>{etapaNombre}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span>Nivel:</span>
-                <strong>{p.motor.n + 1}</strong>
-              </div>
+              {p.leccionNum && p.totalLecciones ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Lección:</span>
+                  <strong>{p.leccionNum} / {p.totalLecciones}</strong>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Nivel:</span>
+                  <strong>{p.motor.n + 1}</strong>
+                </div>
+              )}
+              {typeof p.pctCurso === 'number' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Progreso del curso:</span>
+                  <strong>{p.pctCurso}%</strong>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                 <span>Puntuación:</span>
                 <strong>⭐ {p.score ?? 0}</strong>
               </div>
               {p.progreso && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Actividades:</span>
+                  <span>Juego libre:</span>
                   <strong>{p.progreso.done} / {p.progreso.total}</strong>
                 </div>
               )}
@@ -149,7 +180,7 @@ export default function ZonaPadres(p: Props) {
               </div>
             )}
             {letrasDificiles.length === 0 && (
-              <p style={{ color: '#6b6880', fontSize: '0.9rem' }}>¡Sin dificultades detectadas! Sigue así.</p>
+              <p style={{ color: '#6b6880', fontSize: '0.9rem' }}>Aún no hay fallos registrados. Sigue practicando para ver el mapa de dominio.</p>
             )}
             {p.graduado && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#28a745' }}>
@@ -193,7 +224,7 @@ export default function ZonaPadres(p: Props) {
           {p.graduado ? (
             <span className="peque-stars">🎓 Ya graduada/o ¡felicidades!</span>
           ) : (
-            <button className="next-btn" onClick={p.onExamen}>🎓 Mi hija ya lo sabe: examen</button>
+            <button className="next-btn" onClick={p.onExamen}>🎓 Mi peque ya lo sabe: examen</button>
           )}
         </div>
         <div className="padres-row">

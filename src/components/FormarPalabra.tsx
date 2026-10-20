@@ -55,9 +55,10 @@ export default function FormarPalabra({
 
   const borrar = () => {
     if (resultado) return;
-    const ultima = silabasUsadas.pop();
+    const nuevas = silabasUsadas.slice(0, -1);
+    const ultima = silabasUsadas[silabasUsadas.length - 1];
     if (ultima) {
-      setSilabasUsadas(silabasUsadas);
+      setSilabasUsadas(nuevas);
       setFormada(formada.slice(0, -ultima.length));
     }
   };
@@ -91,7 +92,7 @@ export default function FormarPalabra({
           <button
             key={s}
             onClick={() => agregarSilaba(s)}
-            disabled={resultado || formada.length >= objetivo.length}
+            disabled={resultado !== null || formada.length >= objetivo.length}
             className="letter-btn"
             style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
           >
@@ -102,7 +103,7 @@ export default function FormarPalabra({
       <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
         <button
           onClick={borrar}
-          disabled={silabasUsadas.length === 0 || resultado}
+          disabled={silabasUsadas.length === 0 || resultado !== null}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
@@ -110,11 +111,11 @@ export default function FormarPalabra({
         </button>
         <button
           onClick={reiniciar}
-          disabled={resultado}
+          disabled={resultado === 'correcto'}
           className="ghost-btn"
           style={{ minHeight: '48px', fontSize: '0.9rem' }}
         >
-          🔄 Reiniciar
+          {resultado === 'incorrecto' ? '🔄 Reintentar' : '🔄 Reiniciar'}
         </button>
       </div>
     </div>

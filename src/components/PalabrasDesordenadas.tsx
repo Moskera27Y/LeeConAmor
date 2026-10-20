@@ -13,7 +13,7 @@ const PALABRAS: PalabraDesordenada[] = [
   { id: 'mama', palabra: 'MAMA', silabas: ['MA', 'MA'], imagen: '🤱' },
   { id: 'papa', palabra: 'PAPA', silabas: ['PA', 'PA'], imagen: '👨' },
   { id: 'pera', palabra: 'PERA', silabas: ['PE', 'RA'], imagen: '🍐' },
-  { id: 'sol', palabra: 'SOL', silabas: ['SO', 'L'], imagen: '☀️' },
+  { id: 'sol', palabra: 'SOL', silabas: ['SOL'], imagen: '☀️' },
   { id: 'luna', palabra: 'LUNA', silabas: ['LU', 'NA'], imagen: '🌙' },
   { id: 'casa', palabra: 'CASA', silabas: ['CA', 'SA'], imagen: '🏠' },
   { id: 'sapo', palabra: 'SAPO', silabas: ['SA', 'PO'], imagen: '🐸' },
@@ -70,6 +70,8 @@ export default function PalabrasDesordenadas({
     const siguiente = formada + silaba;
     if (!actual.palabra.startsWith(siguiente)) {
       setResultado('incorrecto');
+      setFormada('');
+      setSilabasUsadas([]);
       speak(F_ERROR_CASI);
       onError();
       return;
@@ -133,7 +135,7 @@ export default function PalabrasDesordenadas({
               <button
                 key={op.id}
                 onClick={() => agregarSilaba(op.silaba)}
-                disabled={resultado === 'correcto' || formada.length >= actual.palabra.length}
+                disabled={!!resultado || formada.length >= actual.palabra.length}
                 className={`letter-btn ${formada.endsWith(op.silaba) && !resultado ? 'selected' : ''}`}
                 style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
               >

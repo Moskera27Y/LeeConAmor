@@ -1,14 +1,13 @@
-import { useState } from 'react';
-import { AVATARS, nuevoId, saveProfile, type RangeId } from '../data/curriculum';
+import { useEffect, useRef, useState } from 'react';
+import { AVATARS, saveProfile, type RangeId } from '../data/curriculum';
 import VoicePicker from './VoicePicker';
 import EvaluacionInicial from './EvaluacionInicial';
 
 interface Props {
   onDone: () => void;
-  onEvaluacionListo?: (perfil: any) => void;
 }
 
-export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
+export default function WelcomeScreen({ onDone }: Props) {
   const [nombre, setNombre] = useState('');
   const [rango, setRango] = useState<RangeId>('3-5');
   const [avatar, setAvatar] = useState(AVATARS[0]);
@@ -16,28 +15,34 @@ export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
   const [micOk, setMicOk] = useState<string>('');
   const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
   const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: RangeId; avatar: string; voiceOn: boolean } | null>(null);
+  const vivoRef = useRef(true);
+
+  useEffect(() => {
+    vivoRef.current = true;
+    return () => {
+      vivoRef.current = false;
+    };
+  }, []);
 
   const probarMicro = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Si el adulto cerró esta pantalla mientras el navegador pedía permiso,
+      // no dejamos el micrófono encendido.
       stream.getTracks().forEach((t) => t.stop());
-      setMicOk('✅ Micrófono listo para leer contigo');
+      if (vivoRef.current) setMicOk('✅ Micrófono listo para leer contigo');
     } catch {
-      setMicOk('⚠️ No pudimos usar el micrófono. Revisa el permiso del navegador.');
+      if (vivoRef.current) setMicOk('⚠️ No pudimos usar el micrófono. Revisa el permiso del navegador.');
     }
   };
 
   const guardar = () => {
     const limpio = nombre.trim().slice(0, 20) || 'Peque';
-    const base = { nombre: limpio, rango, avatar, voiceOn };
-    setPerfilBase(base);
-    if (onEvaluacionListo) {
-      onEvaluacionListo(base);
-    } else {
-      saveProfile({ id: nuevoId(), nombre: limpio, rango, avatar, voiceEnabled: voiceOn, createdAt: Date.now() });
-      try { localStorage.setItem('lee_muted', voiceOn ? '0' : '1'); } catch { /* noop */ }
-      onDone();
-    }
+    // Primero la evaluación (siempre) y después se guarda el perfil completo.
+    // Así el recorrido guiado arranca con la etapa recomendada y el alta
+    // funciona igual desde la pantalla inicial y desde "Nuevo peque".
+    setPerfilBase({ nombre: limpio, rango, avatar, voiceOn });
+    setMostrandoEvaluacion(true);
   };
 
   if (mostrandoEvaluacion && perfilBase) {
@@ -46,13 +51,11 @@ export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
         rango={perfilBase.rango}
         nombre={perfilBase.nombre}
         avatar={perfilBase.avatar}
-        onListo={(perfil: any) => {
+        onListo={(perfil) => {
+          const final = { ...perfil, voiceEnabled: perfilBase.voiceOn };
+          saveProfile(final);
           try { localStorage.setItem('lee_muted', perfilBase.voiceOn ? '0' : '1'); } catch { /* noop */ }
-          if (onEvaluacionListo) {
-            onEvaluacionListo(perfil);
-          } else {
-            onDone();
-          }
+          onDone();
         }}
       />
     );
@@ -114,7 +117,7 @@ export default function WelcomeScreen({ onDone, onEvaluacionListo }: Props) {
         <button type="button" className="ghost-btn" onClick={probarMicro}>🎤 Probar micrófono</button>
       </div>
       {micOk && <div className="mic-status">{micOk}</div>}
-      <p className="privacy-note">🔒 Los datos quedan solo en este dispositivo. El audio para evaluar lectura no se guarda.</p>
+      <p className="privacy-note">🔒 Sin cuenta, el progreso queda en este dispositivo. Con cuenta, se sincroniza para seguir en otro equipo. El audio de lectura se usa solo para transcribirlo y no se guarda en la app.</p>
 
       <button className="next-btn big" onClick={guardar}>Empezar a leer con amor 💛</button>
     </div>

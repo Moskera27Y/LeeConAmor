@@ -1,27 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
-import { READING_CARDS, activarPerfil, esGraduado, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
-import EvaluacionInicial from './components/EvaluacionInicial';
-import { ETAPAS, ETAPAS_POR_RANGO, avanzar, asegurarLeccionInicial, etapaDeLeccion, generarNivel, type EstadoMotor, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, ABECEDARIO } from './data/motorNiveles';
-import { SECUENCIA_LECCIONES } from './data/secuenciaLecciones';
+import { READING_CARDS, activarPerfil, esGraduado, limpiarDatosLocales, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
+import { ETAPAS, ETAPAS_POR_RANGO, asegurarLeccionInicial, esUltimaLeccion, generarNivel, letrasDeObjetivo, numeroLeccionActual, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, progresoCurso, ABECEDARIO, type EstadoMotor } from './data/motorNiveles';
 import { fraseInsignia, tipoObjetivo, VOCALES_JUEGO, PALABRAS_JUEGO, SILABAS_JUEGO } from './data/frasesVoz';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
 import { registrarEvento, cargarAdaptabilidad } from './lib/adaptividad';
-import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas } from './lib/gamificacion';
-import EscucharYElige from './components/EscuchaYElige';
-import FormarSílabaTrabada from './components/FormarSílabaTrabada';
-import PalabrasDesordenadas from './components/PalabrasDesordenadas';
-import TrazoLetra from './components/TrazoLetra';
-import MemoriaAuditiva from './components/MemoriaAuditiva';
+import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas, otorgarInsignia, type InsigniaId } from './lib/gamificacion';
+import { petardos } from './lib/confetti';
+// Juegos secundarios: se descargan al abrir su pestaña, no en el arranque.
+const EscuchaYElige = lazy(() => import('./components/EscuchaYElige'));
+const FormarSílabaTrabada = lazy(() => import('./components/FormarSílabaTrabada'));
+const PalabrasDesordenadas = lazy(() => import('./components/PalabrasDesordenadas'));
+const TrazoLetra = lazy(() => import('./components/TrazoLetra'));
+const MemoriaAuditiva = lazy(() => import('./components/MemoriaAuditiva'));
 import { useVoice } from './hooks/useVoice';
 import BotMessage from './components/BotMessage';
 import WelcomeScreen from './components/WelcomeScreen';
 import ZonaPadres from './components/ZonaPadres';
 import MenuPeques from './components/MenuPeques';
-import GraduationExam from './components/GraduationExam';
-import AuthPadres from './components/AuthPadres';
+const GraduationExam = lazy(() => import('./components/GraduationExam'));
+const AuthPadres = lazy(() => import('./components/AuthPadres'));
 import LetterGame from './components/LetterGame';
 import ReadingCard from './components/ReadingCard';
 import EscucharYTocar from './components/EscucharYTocar';
@@ -31,14 +31,17 @@ import FormarPalabra from './components/FormarPalabra';
 import LeerConElDedo from './components/LeerConElDedo';
 import Storytime from './components/Storytime';
 
-declare global {
-  interface Window {
-    confetti?: (...args: any[]) => void;
-  }
-}
-
 function esNavegador(): boolean {
   return typeof window !== 'undefined';
+}
+
+function Cargando({ texto = 'Cargando juego…' }: { texto?: string }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '2rem', color: '#764ba2', fontWeight: '700' }}>
+      <div style={{ fontSize: '2rem' }}>🦉</div>
+      {texto}
+    </div>
+  );
 }
 
 // Opciones del MISMO tipo que el objetivo (vocales con vocales, letras con
@@ -75,11 +78,32 @@ function App() {
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [emailNube, setEmailNube] = useState('');
-  const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro'>(SUPABASE_ACTIVO ? 'cargando' : 'fuera');
+  const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro' | 'local'>(SUPABASE_ACTIVO ? 'cargando' : 'local');
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
-  const [mostrandoEvaluacion, setMostrandoEvaluacion] = useState(false);
-  const [perfilBase, setPerfilBase] = useState<{ nombre: string; rango: import('./data/curriculum').RangeId; avatar: string; voiceOn: boolean } | null>(null);
   const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | 'letras' | null>(null);
+  const [finCurso, setFinCurso] = useState(false);
+  // Modo sin cuenta: no se intenta bajar/subir nada hasta que el adulto entre.
+  const modoLocalRef = useRef(!SUPABASE_ACTIVO);
+
+  // Todos los hooks van antes de cualquier return condicional (reglas de React).
+  const voiceEnabled = profile?.voiceEnabled ?? true;
+  const { speak, hablarSecuencia, repeat, stop, isSpeaking, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
+  // Si el perfil se creó sin voz, la UI debe ofrecer la salida manual en vez
+  // de un botón de lectura que no puede sonar.
+  const sinVoz = muted || !voiceEnabled;
+
+  // Las opciones se generan UNA vez por actividad: si cambian en cada
+  // re-render (por el marcador o una insignia), los botones se mueven bajo
+  // el dedo del peque.
+  const opcionesActividad = useMemo(
+    () => (actividadActual ? opcionesEscuchar(actividadActual.actividad.objetivo) : []),
+    [actividadActual?.leccion.id, actividadActual?.actividadIndex],
+  );
+
+  // Generar el saludo con el nombre UNA vez por niño (queda guardado para siempre)
+  useEffect(() => {
+    if (profile) asegurarVozNombre(profile.nombre);
+  }, [profile]);
 
   // Aplica un cambio de motor y lo persiste, refrescando la actividad visible.
   const aplicarMotor = (nuevo: EstadoMotor) => {
@@ -89,11 +113,39 @@ function App() {
     setActividadActual(obtenerActividadActual(nuevo, profile.rango));
   };
 
+  // Fin del recorrido: graduación real (no se reinicia en silencio).
+  const terminarCurso = () => {
+    if (!profile) return;
+    marcarGraduado(profile.id);
+    setGraduado(true);
+    let estado = estadoGamificacion || cargarGamificacion(profile.id);
+    const g = actualizarGamificacion(estado, { graduado: true }, profile.id);
+    estado = g.siguiente;
+    const nuevas = [...g.nuevasInsignias];
+    const extra = otorgarInsignia(estado, 'graduado', profile.id);
+    estado = extra.siguiente;
+    nuevas.push(...extra.nuevasInsignias);
+    setEstadoGamificacion(estado);
+    setFinCurso(true);
+    setActividadGanada(false);
+    speak(F_ETAPA_SUPERADA);
+    void petardos({ particleCount: 180, spread: 180, origin: { y: 0.45 } });
+    if (nuevas.length > 0) {
+      window.setTimeout(() => speak(fraseInsignia(nuevas[0].nombre)), 900);
+    }
+  };
+
   // Pasar a la siguiente actividad SOLO si la actual ya se gano.
   // Devuelve false si sigue bloqueada (para que la UI muestre el aviso).
   const avanzarALuego = (forzado = false): boolean => {
     if (!profile) return false;
     if (!forzado && !actividadGanada) return false;
+    // La última actividad de la última lección gradúa; no vuelve al inicio
+    // como si nada hubiera pasado.
+    if (actividadActual?.esUltimaActividad && esUltimaLeccion(profile.rango, motor)) {
+      terminarCurso();
+      return true;
+    }
     const base = actividadActual ? motor : asegurarLeccionInicial(motor, profile.rango, profile.evaluacionInicial);
     const eraUltima = !!actividadActual?.esUltimaActividad;
     const leccionActual = actividadActual?.leccion.id;
@@ -104,47 +156,116 @@ function App() {
     // Aviso + celebración al cambiar de lección
     if (act && eraUltima && act.leccion.id !== leccionActual) {
       speak(act.leccion.audioCelebracion || F_ETAPA_SUPERADA);
-      try {
-        if (esNavegador()) {
-          window.confetti?.({ particleCount: 100, spread: 120, origin: { y: 0.55 } });
-        }
-      } catch { /* noop */ }
-      setTimeout(() => speak(act.leccion.audioIntro || act.leccion.titulo), 900);
+      void petardos({ particleCount: 100, spread: 120, origin: { y: 0.55 } });
+      window.setTimeout(() => speak(act.leccion.audioIntro || act.leccion.titulo), 900);
     }
     return true;
   };
 
-  const manejarCorrecto = (actividadId: string) => {
+  const manejarCorrecto = (objetivo: string) => {
     if (!profile) return;
     setScore((s) => s + 10);
-    const ad = registrarEvento(estadoAdaptabilidad, 'acierto', actividadId);
+
+    // Motor: dominio por letra del objetivo (no por actividad abstracta).
+    const letras = letrasDeObjetivo(objetivo);
+    setMotor((prev) => {
+      const aciertos = { ...prev.aciertos };
+      letras.forEach((l) => { aciertos[l] = (aciertos[l] || 0) + 1; });
+      const nuevo = { ...prev, aciertos };
+      saveMotor(profile.id, nuevo);
+      return nuevo;
+    });
+
+    const ad = registrarEvento(
+      estadoAdaptabilidad || cargarAdaptabilidad(profile.id),
+      'acierto',
+      objetivo,
+      profile.id,
+    );
     setEstadoAdaptabilidad(ad);
 
-    const g = actualizarGamificacion(estadoGamificacion, {
+    let estado = estadoGamificacion || cargarGamificacion(profile.id);
+    const g = actualizarGamificacion(estado, {
       aciertos: 1,
       rachaDias: ad.rachaDias,
       nivelAlcanzado: motor.n + 1,
-    });
-    setEstadoGamificacion(g.siguiente);
-    if (g.nuevasInsignias.length > 0) {
-      speak(fraseInsignia(g.nuevasInsignias[0].nombre));
-      try {
-        if (esNavegador()) window.confetti?.({ particleCount: 130, spread: 150, origin: { y: 0.5 } });
-      } catch { /* noop */ }
+    }, profile.id);
+    estado = g.siguiente;
+    const nuevas = [...g.nuevasInsignias];
+
+    // Insignias de "primera vez" según lo que de verdad acaba de lograr.
+    const tipo = tipoObjetivo(objetivo);
+    const tipoActividad = actividadActual?.actividad.tipo;
+    const otorgar = (id: InsigniaId) => {
+      const r = otorgarInsignia(estado, id, profile.id);
+      estado = r.siguiente;
+      nuevas.push(...r.nuevasInsignias);
+    };
+    if (tipo === 'silaba' || tipoActividad === 'formar_silaba') otorgar('primera_silaba');
+    if (tipo === 'palabra') otorgar('primera_palabra');
+    if (tipo === 'oracion' || tipoActividad === 'storytime') otorgar('primera_oracion');
+
+    setEstadoGamificacion(estado);
+    if (nuevas.length > 0) {
+      speak(fraseInsignia(nuevas[0].nombre));
+      void petardos({ particleCount: 130, spread: 150, origin: { y: 0.5 } });
     }
     // Actividad ganada: se habilita "Siguiente". El niño avanza cuando pulsa,
     // para que vea con calma lo que acaba de lograr.
     setActividadGanada(true);
   };
 
-  const manejarError = (actividadId: string) => {
+  const manejarError = (objetivo: string) => {
     if (!profile) return;
-    const ad = registrarEvento(estadoAdaptabilidad || cargarAdaptabilidad(), 'error', actividadId);
+    const letras = letrasDeObjetivo(objetivo);
+    setMotor((prev) => {
+      const pesos = { ...prev.pesos };
+      letras.forEach((l) => { pesos[l] = (pesos[l] || 0) + 1; });
+      const nuevo = { ...prev, pesos };
+      saveMotor(profile.id, nuevo);
+      return nuevo;
+    });
+
+    const ad = registrarEvento(
+      estadoAdaptabilidad || cargarAdaptabilidad(profile.id),
+      'error',
+      objetivo,
+      profile.id,
+    );
     setEstadoAdaptabilidad(ad);
-    const g = actualizarGamificacion(estadoGamificacion, { errores: 1, rachaDias: ad.rachaDias });
+    const g = actualizarGamificacion(
+      estadoGamificacion || cargarGamificacion(profile.id),
+      { errores: 1, rachaDias: ad.rachaDias },
+      profile.id,
+    );
     setEstadoGamificacion(g.siguiente);
     // Si falla, la actividad sigue pendiente: "Siguiente" permanece bloqueado.
     setActividadGanada(false);
+  };
+
+  // Juegos libres: suman puntos y estadísticas, pero no bloquean el recorrido.
+  const registrarJuegoLibre = (tipo: 'acierto' | 'error') => {
+    if (!profile) return;
+    if (tipo === 'acierto') setScore((s) => s + 10);
+    const ad = registrarEvento(
+      estadoAdaptabilidad || cargarAdaptabilidad(profile.id),
+      tipo,
+      'juego_libre',
+      profile.id,
+    );
+    setEstadoAdaptabilidad(ad);
+    const g = actualizarGamificacion(
+      estadoGamificacion || cargarGamificacion(profile.id),
+      tipo === 'acierto'
+        ? { aciertos: 1, rachaDias: ad.rachaDias }
+        : { errores: 1, rachaDias: ad.rachaDias },
+      profile.id,
+    );
+    setEstadoGamificacion(g.siguiente);
+    if (g.nuevasInsignias.length > 0) {
+      speak(fraseInsignia(g.nuevasInsignias[0].nombre));
+      void petardos({ particleCount: 100, spread: 120, origin: { y: 0.5 } });
+    }
   };
 
   const refrescar = () => {
@@ -159,71 +280,158 @@ function App() {
       // tiene lección asignada, se le pone la primera de su rango para que el
       // recorrido guiado de lecciones arranque solo.
       const guardado = loadMotor(activo.id);
-      const conLeccion = guardado.leccionId
+      let conLeccion = guardado.leccionId
         ? guardado
         : asegurarLeccionInicial(guardado, activo.rango, activo.evaluacionInicial);
-      if (!guardado.leccionId) saveMotor(activo.id, conLeccion);
+      // Currículo actualizado o guardado corrupto: si la lección/actividad ya
+      // no existe, se repara en vez de dejar al peque sin recorrido.
+      if (!obtenerActividadActual(conLeccion, activo.rango)) {
+        conLeccion = asegurarLeccionInicial(
+          { ...conLeccion, leccionId: undefined, actividadIdx: 0 },
+          activo.rango,
+          activo.evaluacionInicial,
+        );
+        saveMotor(activo.id, conLeccion);
+      } else if (!guardado.leccionId) {
+        saveMotor(activo.id, conLeccion);
+      }
       setMotor(conLeccion);
       setGraduado(esGraduado(activo.id));
       setActividadActual(obtenerActividadActual(conLeccion, activo.rango));
+      setEstadoAdaptabilidad(cargarAdaptabilidad(activo.id));
+      setEstadoGamificacion(cargarGamificacion(activo.id));
+      // No se toca actividadGanada/finCurso: una sincronización de fondo no
+      // debe borrar el acierto que el peque acaba de conseguir.
+    } else {
+      setScore(0);
+      setProgress({ done: 0, total: 3 });
+      setEstadoAdaptabilidad(null);
+      setEstadoGamificacion(null);
+      setGraduado(false);
+      setActividadActual(null);
+      setActividadGanada(false);
+      setFinCurso(false);
     }
+  };
+
+  // Entrar a la nube (o detectar que no hay sesión). Al bajar, se refresca el
+  // perfil activo para que el peque vea el avance de la nube.
+  const entrarNube = async () => {
+    const email = await emailSesion();
+    setEmailNube(email);
+    if (!email) {
+      if (!modoLocalRef.current) setAuth(SUPABASE_ACTIVO ? 'fuera' : 'local');
+      return;
+    }
+    modoLocalRef.current = false;
+    setAuth('dentro');
+    const bajo = await bajarNube();
+    refrescar();
+    // Si no se pudo bajar (red), no se sube: pisaría un avance más nuevo de
+    // otro dispositivo. Se reintenta cuando vuelva la conexión.
+    if (bajo && hayPendiente()) await sincronizarAhora(true);
+  };
+
+  // Cerrar sesión: sube lo pendiente (best effort) y borra los datos locales.
+  // La nube conserva todo; al volver a entrar se descarga de nuevo.
+  const salirCuenta = async () => {
+    const eraLocal = modoLocalRef.current;
+    const mensaje = eraLocal
+      ? '¿Salir y borrar los datos de este dispositivo? La nube no se toca; si no tienes cuenta, el progreso local se perderá.'
+      : '¿Cerrar sesión? Tu progreso queda guardado en la nube y volverá al entrar de nuevo.';
+    if (typeof window !== 'undefined' && !window.confirm(mensaje)) return;
+    stop();
+    try {
+      if (!eraLocal && hayPendiente()) {
+        const guardado = await sincronizarAhora();
+        if (!guardado && !window.confirm('No pudimos guardar los últimos cambios en la nube. Si cierras ahora, se borrarán de este dispositivo. ¿Cerrar de todos modos?')) {
+          return;
+        }
+      }
+    } catch { /* best effort */ }
+    await cerrarSesionNube();
+    limpiarDatosLocales();
+    setProfile(null);
+    setPerfiles([]);
+    setScore(0);
+    setProgress({ done: 0, total: 3 });
+    setActividadActual(null);
+    setEstadoAdaptabilidad(null);
+    setEstadoGamificacion(null);
+    setGraduado(false);
+    setMotor({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
+    setEmailNube('');
+    modoLocalRef.current = eraLocal || !SUPABASE_ACTIVO;
+    setAuth(eraLocal || !SUPABASE_ACTIVO ? 'local' : 'fuera');
+    setShowPeques(false);
+    setShowPadres(false);
+    setShowAuth(false);
+    setShowExamen(false);
+    setFinCurso(false);
   };
 
   useEffect(() => {
     if (!esNavegador()) return;
 
     refrescar();
-    setEstadoAdaptabilidad(cargarAdaptabilidad());
-    setEstadoGamificacion(cargarGamificacion());
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
-    document.head.appendChild(script);
+
+    const stopVig = vigilarConexion((on) => {
+      setEnLinea(on);
+      if (on && hayPendiente()) {
+        void sincronizarAhora().then((ok) => { if (ok) refrescar(); });
+      }
+    });
 
     const sb = supabase();
-    if (sb) {
-      const initAuth = async () => {
-        const { data: { session } } = await sb.auth.getSession();
-        const email = session?.user?.email || '';
-        setEmailNube(email);
-        setAuth(email ? 'dentro' : 'fuera');
-        if (email) {
-          bajarNube().then(() => {
-            refrescar();
-            if (hayPendiente()) sincronizarAhora();
-          });
-        }
-      };
-      initAuth();
-
-      const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
-        const email = session?.user?.email || '';
-        setEmailNube(email);
-        setAuth(email ? 'dentro' : 'fuera');
-        if (email) {
-          await bajarNube().then(() => {
-            refrescar();
-            if (hayPendiente()) sincronizarAhora();
-          });
-        }
-      });
-
-      const stopVig = vigilarConexion((on) => {
-        setEnLinea(on);
-        if (on && hayPendiente()) sincronizarAhora();
-      });
-
-      return () => {
-        try {
-          document.head.removeChild(script);
-        } catch { /* noop */ }
-        sub.subscription.unsubscribe();
-        stopVig();
-      };
+    if (!sb) {
+      setAuth('local');
+      return stopVig;
     }
-    return () => {
+
+    // Si la red o Supabase tardan, no dejamos la app en "despertando" para
+    // siempre: a los 5 s se ofrece entrar o jugar sin cuenta.
+    const rescate = window.setTimeout(() => {
+      setAuth((actual) => (actual === 'cargando' ? 'fuera' : actual));
+    }, 5000);
+
+    const initAuth = async () => {
       try {
-        document.head.removeChild(script);
-      } catch { /* noop */ }
+        const { data: { session } } = await sb.auth.getSession();
+        if (session?.user?.email) {
+          await entrarNube();
+        } else if (!modoLocalRef.current) {
+          setAuth(SUPABASE_ACTIVO ? 'fuera' : 'local');
+        }
+      } catch {
+        if (!modoLocalRef.current) setAuth('fuera');
+      } finally {
+        window.clearTimeout(rescate);
+      }
+    };
+    initAuth();
+
+    const { data: sub } = sb.auth.onAuthStateChange(async (evento, session) => {
+      const email = session?.user?.email || '';
+      setEmailNube(email);
+      if (email) {
+        modoLocalRef.current = false;
+        setAuth('dentro');
+        if (evento === 'SIGNED_IN' || evento === 'INITIAL_SESSION') {
+          setActividadGanada(false);
+          setFinCurso(false);
+        }
+        const bajo = await bajarNube();
+        refrescar();
+        if (bajo && hayPendiente()) await sincronizarAhora(true);
+      } else if (evento === 'SIGNED_OUT' || !modoLocalRef.current) {
+        if (!modoLocalRef.current) setAuth('fuera');
+      }
+    });
+
+    return () => {
+      window.clearTimeout(rescate);
+      sub.subscription.unsubscribe();
+      stopVig();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -233,21 +441,45 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score]);
 
+  // Sincronización de fondo: sin esto, los cambios de una sesión iniciada
+  // quedaban pendientes hasta el siguiente inicio de sesión.
+  useEffect(() => {
+    if (!SUPABASE_ACTIVO || auth !== 'dentro' || modoLocalRef.current || !hayPendiente()) return;
+    const subir = () => {
+      if (!hayPendiente()) return;
+      void sincronizarAhora().then((ok) => {
+        if (ok) refrescar();
+      });
+    };
+    const t = window.setTimeout(subir, 8000);
+    const alOcultar = () => {
+      if (document.visibilityState === 'hidden') subir();
+    };
+    document.addEventListener('visibilitychange', alOcultar);
+    window.addEventListener('pagehide', subir);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('visibilitychange', alOcultar);
+      window.removeEventListener('pagehide', subir);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth, motor, score, estadoGamificacion, estadoAdaptabilidad, profile?.id]);
+
+  // Si una sincronización mueve al peque a otra actividad, el "acierto" de la
+  // actividad anterior no debe desbloquear "Siguiente" en la nueva.
+  useEffect(() => {
+    setActividadGanada(false);
+  }, [actividadActual?.leccion.id, actividadActual?.actividadIndex]);
+
   const elegirPeque = (id: string) => {
     activarPerfil(id);
     setShowPeques(false);
     setShowPadres(false);
     setReadingIndex(0);
+    setActividadGanada(false);
+    setFinCurso(false);
     refrescar();
   };
-
-  const voiceEnabled = profile?.voiceEnabled ?? true;
-  const { speak, hablarSecuencia, repeat, stop, isSpeaking, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
-
-  // Generar el saludo con el nombre UNA vez por niño (queda guardado para siempre)
-  useEffect(() => {
-    if (profile) asegurarVozNombre(profile.nombre);
-  }, [profile]);
 
   // Si hay voz nativa disponible, la app sigue hablando aunque el backend falle,
 // así que solo avisamos cuando de verdad no hay ninguna voz.
@@ -267,24 +499,41 @@ const motivoTexto =
     if (pressTimer.current) window.clearTimeout(pressTimer.current);
   };
 
+  // El interruptor de voz actualiza también el perfil: si el peque se creó
+  // sin voz, al activarla no debe quedar bloqueada para siempre.
+  const alternarVoz = () => {
+    const activar = sinVoz;
+    // "muted" y "voiceEnabled" pueden estar desincronizados en perfiles
+    // antiguos; se normalizan ambos para que el botón haga lo que promete.
+    if (activar && muted) toggleMute();
+    if (!activar && !muted) toggleMute();
+    if (profile && profile.voiceEnabled !== activar) {
+      const actualizado = { ...profile, voiceEnabled: activar };
+      saveProfile(actualizado);
+      setProfile(actualizado);
+    }
+  };
+
   const pantallaAcceso = (
     <div className="app sky">
       <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
       <header className="app-header">
         <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
-        <p className="subtitle">Primero entra papá o mamá 💛</p>
+        <p className="subtitle">Entra o juega sin cuenta 💛</p>
       </header>
       <main className="app-main">
-        <AuthPadres
-          bloqueado
-          onListo={() => {
-            emailSesion().then((em) => {
-              setEmailNube(em);
-              setAuth(em ? 'dentro' : 'fuera');
-            });
-          }}
-          onClose={() => {}}
-        />
+        <Suspense fallback={<Cargando texto="Cargando acceso…" />}>
+          <AuthPadres
+            bloqueado
+            onListo={() => { void entrarNube(); }}
+            onSinCuenta={() => {
+              modoLocalRef.current = true;
+              setEmailNube('');
+              setAuth('local');
+            }}
+            onClose={() => {}}
+          />
+        </Suspense>
       </main>
     </div>
   );
@@ -305,40 +554,7 @@ const motivoTexto =
     return pantallaAcceso;
   }
 
-  if (!SUPABASE_ACTIVO) {
-    return (
-      <div className="app sky">
-        <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
-        <main className="app-main" style={{ textAlign: 'center', paddingTop: '15vh' }}>
-          <div style={{ fontSize: '4rem' }}>🔧</div>
-          <p style={{ color: '#5b3a80', fontSize: '1.2rem' }}>La nube no está configurada.<br />Pide al administrador que active el acceso.</p>
-        </main>
-      </div>
-    );
-  }
-
   if (!profile) {
-    if (mostrandoEvaluacion && perfilBase) {
-      return (
-        <div className="app sky">
-          <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
-          <main className="app-main">
-            <EvaluacionInicial
-              rango={perfilBase.rango}
-              nombre={perfilBase.nombre}
-              avatar={perfilBase.avatar}
-              onListo={(perfil: any) => {
-                saveProfile(perfil);
-                try { localStorage.setItem('lee_muted', perfilBase.voiceOn ? '0' : '1'); } catch { /* noop */ }
-                setMostrandoEvaluacion(false);
-                setPerfilBase(null);
-                setProfile(loadProfile());
-              }}
-            />
-          </main>
-        </div>
-      );
-    }
     return (
       <div className="app sky">
         <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
@@ -346,50 +562,60 @@ const motivoTexto =
           <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
           <p className="subtitle">Enseña a leer a tus hijos de forma divertida y efectiva</p>
         </header>
-        <main className="app-main"><WelcomeScreen onDone={() => setProfile(loadProfile())} onEvaluacionListo={(base) => { setPerfilBase(base); setMostrandoEvaluacion(true); }} /></main>
+        <main className="app-main"><WelcomeScreen onDone={refrescar} /></main>
       </div>
     );
   }
 
   const levels = [generarNivel(motor, profile.rango)];
   const etapaInfo = ETAPAS.find((e) => e.id === motor.etapa) || ETAPAS[0];
-  const etapasDelRango = ETAPAS_POR_RANGO[profile.rango];
-  const etapaIdx = Math.max(0, etapasDelRango.indexOf(motor.etapa));
   const cards = READING_CARDS[profile.rango];
   const card = cards[readingIndex % cards.length];
-  // El progreso se mide sobre las etapas reales del rango (3 etapas en 3-5, 4 en 6-8)
-  const pasosPorEtapa = 6;
-  const pct = Math.min(100, Math.round(((etapaIdx * pasosPorEtapa + Math.min(motor.n, pasosPorEtapa)) / (etapasDelRango.length * pasosPorEtapa)) * 100));
-
-  // Progreso dentro de la lección guiada
+  // Progreso real del curso guiado (lecciones y actividades).
+  const pct = graduado ? 100 : progresoCurso(profile.rango, motor);
   const totalLecciones = obtenerTotalLecciones(profile.rango);
-  const leccionNum = actividadActual
-    ? SECUENCIA_LECCIONES[profile.rango].findIndex((l) => l.id === actividadActual.leccion.id) + 1
-    : 1;
+  const leccionNum = numeroLeccionActual(profile.rango, motor);
   const pctLeccion = actividadActual
     ? Math.round(((actividadActual.actividadIndex + 1) / actividadActual.leccion.actividades.length) * 100)
     : 0;
+  // Fuerza un montaje limpio al cambiar de actividad. Sin esto, dos
+  // actividades seguidas del mismo tipo compartían "correcto"/"escuchado"
+  // y la siguiente aparecía bloqueada.
+  const claveActividad = `${actividadActual?.leccion.id || 'sin-leccion'}-${actividadActual?.actividadIndex ?? -1}`;
 
+  // El juego libre reporta el resultado al TERMINAR la ronda. Aquí solo se
+  // guarda el dominio; el avance de nivel ocurre una única vez al pulsar
+  // "Siguiente nivel" (antes se avanzaba dos veces).
   const manejarResultado = (r: { aciertos: number; total: number; falladas: string[]; acertadas: string[] }) => {
     if (!profile) return;
-    const { nuevo, subioEtapa } = avanzar(motor, r.aciertos, r.total, r.falladas, r.acertadas, profile.rango);
-    setMotor(nuevo);
-    saveMotor(profile.id, nuevo);
-    if (subioEtapa) {
-      speak(F_ETAPA_SUPERADA);
-      try {
-        if (esNavegador()) {
-          window.confetti?.({ particleCount: 80, spread: 100, origin: { y: 0.6 } });
-        }
-      } catch { /* noop */ }
-    }
+    setMotor((prev) => {
+      const pesos = { ...prev.pesos };
+      const ac = { ...prev.aciertos };
+      r.falladas.forEach((l) => { pesos[l] = (pesos[l] || 0) + 1; });
+      r.acertadas.forEach((l) => { ac[l] = (ac[l] || 0) + 1; });
+      const nuevo = { ...prev, pesos, aciertos: ac };
+      saveMotor(profile.id, nuevo);
+      return nuevo;
+    });
   };
 
   const avanzarMotor = () => {
     if (!profile) return;
-    const nuevo = { ...motor, n: motor.n + 1 };
-    setMotor(nuevo);
-    saveMotor(profile.id, nuevo);
+    const orden = ETAPAS_POR_RANGO[profile.rango];
+    const idxEtapa = orden.indexOf(motor.etapa);
+    const siguienteN = motor.n + 1;
+    const subeEtapa = siguienteN > 0 && siguienteN % 6 === 0 && idxEtapa >= 0 && idxEtapa < orden.length - 1;
+    setMotor((prev) => {
+      const nuevo = subeEtapa
+        ? { ...prev, etapa: orden[idxEtapa + 1], n: 0 }
+        : { ...prev, n: siguienteN };
+      saveMotor(profile.id, nuevo);
+      return nuevo;
+    });
+    if (subeEtapa) {
+      speak(F_ETAPA_SUPERADA);
+      void petardos({ particleCount: 80, spread: 100, origin: { y: 0.6 } });
+    }
   };
 
   return (
@@ -418,7 +644,9 @@ const motivoTexto =
       <main className="app-main">
         <div className="progress-tracker progress-grande">
           <div className="progress-score">⭐ {score}</div>
-          <div className="progress-label">{etapaInfo.icono} {etapaInfo.nombre} · Nivel {motor.n + 1}</div>
+          <div className="progress-label">
+            {graduado ? '🎓 Curso completado' : `📖 Curso de lectura · Lección ${leccionNum}/${totalLecciones}`}
+          </div>
           <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
             {isSpeaking && (
@@ -472,8 +700,9 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'escuchar_tocar' && (
               <EscucharYTocar
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
-                opciones={opcionesEscuchar(actividadActual.actividad.objetivo)}
+                opciones={opcionesActividad}
                 correcta={actividadActual.actividad.objetivo}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
@@ -484,6 +713,7 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'formar_silaba' && (
               <FormarSílaba
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
                 letras={actividadActual.actividad.letras || actividadActual.actividad.objetivo.split('')}
                 speak={speak}
@@ -495,10 +725,11 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'silaba_inicial' && (
               <SílabaInicial
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
                 palabra={actividadActual.actividad.palabra || actividadActual.actividad.objetivo}
                 imagen={actividadActual.actividad.imagen}
-                opciones={opcionesEscuchar(actividadActual.actividad.objetivo)}
+                opciones={opcionesActividad}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
                 onCorrecto={() => manejarCorrecto(actividadActual.actividad.objetivo)}
@@ -508,6 +739,7 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'formar_palabra' && (
               <FormarPalabra
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
                 silabas={actividadActual.actividad.silabas || actividadActual.actividad.objetivo.split('')}
                 imagen={actividadActual.actividad.imagen}
@@ -520,6 +752,7 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'leer_con_dedo' && (
               <LeerConElDedo
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
                 imagen={actividadActual.actividad.imagen}
                 speak={speak}
@@ -531,6 +764,7 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'leer_voz_alta' && (
               <ReadingCard
+                key={claveActividad}
                 objetivo={actividadActual.actividad.objetivo}
                 imagen={actividadActual.actividad.imagen || '📖'}
                 pista={actividadActual.actividad.pista || ''}
@@ -548,6 +782,7 @@ const motivoTexto =
             )}
             {actividadActual.actividad.tipo === 'storytime' && (
               <Storytime
+                key={claveActividad}
                 texto={actividadActual.actividad.textoTTS || actividadActual.actividad.objetivo}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
@@ -556,6 +791,8 @@ const motivoTexto =
                   manejarCorrecto(actividadActual.actividad.objetivo);
                 }}
                 isSpeaking={isSpeaking}
+                detener={stop}
+                muted={sinVoz}
               />
             )}
             <div style={{ marginTop: '1rem', textAlign: 'center', display: 'flex', gap: '0.6rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -676,6 +913,7 @@ onResultado={manejarResultado}
                 🅰️ Juego libre
               </button>
             </div>
+            <Suspense fallback={<Cargando />}>
             {masJuego === 'letras' && (
               <LetterGame
                 key={`libre-${motor.etapa}-${motor.n}`}
@@ -697,35 +935,22 @@ onResultado={manejarResultado}
             />
           )}
             {masJuego === 'escucha_elige' && (
-              <EscucharYElige
+              <EscuchaYElige
                 rango={profile.rango}
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
-                onError={() => {
-                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
+                onCorrecto={() => registrarJuegoLibre('acierto')}
+                onError={() => registrarJuegoLibre('error')}
                 isSpeaking={isSpeaking}
+                sinVoz={sinVoz}
               />
             )}
             {masJuego === 'silaba_trabada' && (
               <FormarSílabaTrabada
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
-                onError={() => {
-                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
+                onCorrecto={() => registrarJuegoLibre('acierto')}
+                onError={() => registrarJuegoLibre('error')}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -733,15 +958,8 @@ onResultado={manejarResultado}
               <PalabrasDesordenadas
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
-                onError={() => {
-                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
+                onCorrecto={() => registrarJuegoLibre('acierto')}
+                onError={() => registrarJuegoLibre('error')}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -749,15 +967,8 @@ onResultado={manejarResultado}
               <TrazoLetra
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
-                onError={() => {
-                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
+                onCorrecto={() => registrarJuegoLibre('acierto')}
+                onError={() => registrarJuegoLibre('error')}
                 isSpeaking={isSpeaking}
               />
             )}
@@ -765,18 +976,13 @@ onResultado={manejarResultado}
               <MemoriaAuditiva
                 speak={speak}
                 hablarSecuencia={hablarSecuencia}
-                onCorrecto={() => {
-                  setScore((s) => s + 10);
-                  const g = actualizarGamificacion(estadoGamificacion, { aciertos: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
-                onError={() => {
-                  const g = actualizarGamificacion(estadoGamificacion, { errores: 1 });
-                  setEstadoGamificacion(g.siguiente);
-                }}
+                onCorrecto={() => registrarJuegoLibre('acierto')}
+                onError={() => registrarJuegoLibre('error')}
                 isSpeaking={isSpeaking}
+                sinVoz={sinVoz}
               />
             )}
+            </Suspense>
           </div>
         )}
       </main>
@@ -786,8 +992,8 @@ onResultado={manejarResultado}
           nombre={profile.nombre}
           rango={profile.rango}
           avatar={profile.avatar}
-          muted={muted}
-          onToggleMute={toggleMute}
+          muted={sinVoz}
+          onToggleMute={alternarVoz}
           onProbarVoz={probarVoz}
           onCallar={stop}
           fuente={fuente}
@@ -803,6 +1009,9 @@ onResultado={manejarResultado}
           graduado={graduado}
           score={score}
           progreso={progress}
+          leccionNum={leccionNum}
+          totalLecciones={totalLecciones}
+          pctCurso={pct}
           onExamen={() => {
             setShowPadres(false);
             setShowExamen(true);
@@ -813,40 +1022,48 @@ onResultado={manejarResultado}
             setShowPadres(false);
             setShowAuth(true);
           }}
-          onSalirNube={async () => {
-            await cerrarSesionNube();
-            setEmailNube('');
-            setShowPadres(false);
-            setShowPeques(false);
-            setShowAuth(false);
-            setAuth('fuera');
-          }}
+          onSalirNube={() => { void salirCuenta(); }}
         />
       )}
 
       {showAuth && (
-        <AuthPadres
-          onListo={() => {
-            setShowAuth(false);
-          }}
-          onClose={() => setShowAuth(false)}
-        />
+        <Suspense fallback={<Cargando texto="Cargando acceso…" />}>
+          <AuthPadres
+            onListo={() => {
+              setShowAuth(false);
+              setActividadGanada(false);
+              setFinCurso(false);
+              void entrarNube();
+            }}
+            onClose={() => setShowAuth(false)}
+          />
+        </Suspense>
       )}
 
       {showExamen && (
-        <GraduationExam
-          speak={speak}
-          isSpeaking={isSpeaking}
-          onAprobar={() => {
-            if (profile) {
+        <Suspense fallback={<Cargando texto="Preparando el examen…" />}>
+          <GraduationExam
+            speak={speak}
+            isSpeaking={isSpeaking}
+            onAprobar={() => {
+              if (!profile) return;
               marcarGraduado(profile.id);
               setGraduado(true);
-              const g = actualizarGamificacion(estadoGamificacion, { graduado: true });
-              setEstadoGamificacion(g.siguiente);
-            }
-          }}
-          onClose={() => setShowExamen(false)}
-        />
+              const g = actualizarGamificacion(
+                estadoGamificacion || cargarGamificacion(profile.id),
+                { graduado: true },
+                profile.id,
+              );
+              const extra = otorgarInsignia(g.siguiente, 'graduado', profile.id);
+              setEstadoGamificacion(extra.siguiente);
+              if (extra.nuevasInsignias.length > 0) {
+                speak(fraseInsignia(extra.nuevasInsignias[0].nombre));
+                void petardos({ particleCount: 160, spread: 160, origin: { y: 0.45 } });
+              }
+            }}
+            onClose={() => setShowExamen(false)}
+          />
+        </Suspense>
       )}
 
       {showPeques && (
@@ -855,21 +1072,49 @@ onResultado={manejarResultado}
           activoId={profile.id}
           onElegir={elegirPeque}
           onNuevoListo={() => {
+            setActividadGanada(false);
+            setFinCurso(false);
             refrescar();
             setShowPeques(false);
           }}
           onClose={() => setShowPeques(false)}
-          onCerrarSesionPadres={() => {
-            setProfile(null);
-            setPerfiles([]);
-            setEmailNube('');
-            setAuth('fuera');
-            setShowPeques(false);
-            setShowPadres(false);
-            localStorage.removeItem('leeconamor_activo');
-            localStorage.removeItem('lee_recordar');
-          }}
+          onCerrarSesionPadres={() => { void salirCuenta(); }}
         />
+      )}
+
+      {finCurso && (
+        <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Curso completado">
+          <div className="padres-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
+            <div style={{ fontSize: '4rem' }}>🎓🎉</div>
+            <h2>¡Curso completado, {profile.nombre}!</h2>
+            <p style={{ color: '#5b3a80', fontWeight: '700' }}>
+              Terminaste todo el recorrido de lectura con ⭐ {score} puntos.
+              Léo está muy orgulloso de ti.
+            </p>
+            <div className="game-actions" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="next-btn"
+                onClick={() => {
+                  setFinCurso(false);
+                  const nuevo = avanzarActividad(motor, profile.rango);
+                  aplicarMotor(nuevo);
+                  setActividadGanada(false);
+                }}
+              >
+                🔁 Seguir repasando
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => {
+                  setFinCurso(false);
+                  setShowPadres(true);
+                }}
+              >
+                📊 Ver mi progreso
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <footer className="app-footer"><p>© 2026 LeeConAmor - {profile.nombre} aprende con {profile.avatar} y Léo 🦉</p></footer>

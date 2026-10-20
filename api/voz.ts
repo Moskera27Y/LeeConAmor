@@ -9,8 +9,11 @@
 // Vercel: define CLON_URL con la URL del Space de HuggingFace
 // (carpeta voz-clon-space). Para desarrollo: http://127.0.0.1:7860
 
-// Vercel Hobby corta las funciones a los 10s: hay que declarar el limite.
+// El clon puede tardar; se declara el máximo del runtime y el fetch tiene su
+// propio timeout de 45 s. Ajusta el plan de Vercel si tu límite es menor.
 export const config = { maxDuration: 60 };
+
+import { cuerpoDemasiadoGrande, permitirPeticion, responderLimite } from './_limite';
 
 const CACHE = new Map<string, { audio: string; mime: string; voz: string; clon: boolean }>();
 
@@ -21,6 +24,14 @@ function baseClon(): string {
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+  if (cuerpoDemasiadoGrande(req, 8 * 1024)) {
+    res.status(413).json({ error: 'Texto demasiado largo' });
+    return;
+  }
+  if (!permitirPeticion(req, 30)) {
+    responderLimite(res);
     return;
   }
 
@@ -45,16 +56,15 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 45000);
     const r = await fetch(`${clonUrl}/clonar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texto }),
       signal: controller.signal,
     });
-    clearTimeout(timer);
 
     if (!r.ok) {
       res.status(502).json({ error: `El clon respondió ${r.status}` });
@@ -62,16 +72,21 @@ export default async function handler(req: any, res: any) {
     }
 
     const data = (await r.json()) as any;
-    if (!data?.audio) {
-      res.status(502).json({ error: 'El clon no devolvió audio' });
+    // El clon es un servicio propio, pero no se confía en un audio gigante:
+    // evita llenar la memoria de la función con una respuesta corrupta.
+    if (typeof data?.audio !== 'string' || data.audio.length === 0 || data.audio.length > 6_000_000) {
+      res.status(502).json({ error: 'El clon no devolvió audio válido' });
       return;
     }
 
     const full = { audio: data.audio, mime: data.mime || 'audio/wav', voz: 'Leo', clon: true };
     CACHE.set(ck, full);
-    if (CACHE.size > 200) CACHE.delete(CACHE.keys().next().value as string);
+    // 60 audios en memoria como máximo (cada uno puede pesar ~1 MB).
+    if (CACHE.size > 60) CACHE.delete(CACHE.keys().next().value as string);
     res.status(200).json({ ...full, cache: false });
   } catch {
     res.status(502).json({ error: 'No se pudo contactar con la voz clonada' });
+  } finally {
+    clearTimeout(timer);
   }
 }

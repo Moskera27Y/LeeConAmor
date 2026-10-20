@@ -44,6 +44,12 @@ export default function SílabaInicial({
     }
   };
 
+  const reintentar = () => {
+    setSeleccionada(null);
+    setResultado(null);
+    setEscuchado(true);
+  };
+
   return (
     <div className="silaba-inicial" style={{ textAlign: 'center', padding: '1rem' }}>
       {imagen && <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>{imagen}</div>}
@@ -63,7 +69,7 @@ export default function SílabaInicial({
           <button
             key={op}
             onClick={() => tocar(op)}
-            disabled={resultado || !escuchado || isSpeaking}
+            disabled={resultado !== null || !escuchado || isSpeaking}
             className={`letter-btn ${seleccionada === op ? (resultado === 'correcto' ? 'selected' : '') : ''} ${resultado === 'incorrecto' && seleccionada === op ? 'wrong' : ''}`}
             style={{ width: '88px', height: '88px', fontSize: '2rem' }}
           >
@@ -71,6 +77,11 @@ export default function SílabaInicial({
           </button>
         ))}
       </div>
+      {resultado === 'incorrecto' && (
+        <button className="retry-btn" onClick={reintentar} style={{ marginTop: '1rem', minHeight: '48px' }}>
+          🔄 Intentar otra vez
+        </button>
+      )}
     </div>
   );
 }

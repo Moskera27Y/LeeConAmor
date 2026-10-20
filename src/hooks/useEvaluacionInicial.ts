@@ -46,8 +46,24 @@ export type ResultadoEval = {
 };
 
 function normalizar(s: string): string {
-  return (s || '').toLowerCase().trim().replace(/[^a-z0-9\s]/g, '');
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9ñ\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
+
+const ETAPAS_EVAL_VALIDAS = new Set([
+  'vocales',
+  'silabas_directas',
+  'silabas_inversas',
+  'silabas_trabadas',
+  'palabras_2_silabas',
+  'palabras_3_silabas',
+  'oraciones',
+]);
 
 export function evaluarRespuestas(respuestas: Record<string, string>, rango: RangoId): ResultadoEval {
   const misPreguntas = PREGUNTAS_EVAL.filter((p) => p.rango === rango);
@@ -59,7 +75,9 @@ export function evaluarRespuestas(respuestas: Record<string, string>, rango: Ran
     total += p.peso;
     const dada = normalizar(respuestas[p.id]);
     const esperada = normalizar(p.respuestaEsperada);
-    if (dada === esperada || dada.includes(esperada) || esperada.includes(dada)) {
+    // Coincidencia exacta: una respuesta vacía ya no cuenta como acierto y
+    // "A" no se acepta por estar contenida en "MAMA".
+    if (dada.length > 0 && dada === esperada) {
       puntaje += p.peso;
     } else {
       observaciones.push(`Refuerzo: ${p.enunciado}`);
@@ -93,11 +111,29 @@ export async function recomendarNivelConIA(respuestas: Record<string, string>, r
     const resumenLocal = `Resultado local: puntaje ${local.puntaje}/${local.total}, etapa sugerida: ${local.etapaRecomendada}, nivel: ${local.nivelRecomendado}.`;
     const ia = await consultarRecomendacionIA(respuestas, rango, nombre, `${resumen}\n${resumenLocal}`);
     if (!ia) return local;
+
+    // La IA puede equivocarse o inventar valores: se valida antes de usarla.
+    const nivelMax = rango === '3-5' ? 3 : 6;
+    const nivelIa = typeof ia.nivelRecomendado === 'number' && Number.isFinite(ia.nivelRecomendado)
+      ? Math.max(0, Math.min(nivelMax, Math.round(ia.nivelRecomendado)))
+      : null;
+    const etapaIa = typeof ia.etapaRecomendada === 'string' && ETAPAS_EVAL_VALIDAS.has(ia.etapaRecomendada)
+      ? ia.etapaRecomendada
+      : null;
+    const observacionesIa = Array.isArray(ia.observaciones)
+      ? ia.observaciones
+          .filter((o): o is string => typeof o === 'string' && o.trim().length > 0)
+          .slice(0, 5)
+          .map((o) => o.slice(0, 140))
+      : [];
+
+    if (nivelIa === null && etapaIa === null && observacionesIa.length === 0) return local;
+
     return {
       ...local,
-      nivelRecomendado: typeof ia.nivelRecomendado === 'number' ? ia.nivelRecomendado : local.nivelRecomendado,
-      etapaRecomendada: typeof ia.etapaRecomendada === 'string' && ia.etapaRecomendada ? ia.etapaRecomendada : local.etapaRecomendada,
-      observaciones: Array.isArray(ia.observaciones) && ia.observaciones.length > 0 ? ia.observaciones : local.observaciones,
+      nivelRecomendado: nivelIa ?? local.nivelRecomendado,
+      etapaRecomendada: etapaIa ?? local.etapaRecomendada,
+      observaciones: observacionesIa.length > 0 ? observacionesIa : local.observaciones,
     };
   } catch {
     return local;

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function normalizeEs(s: string): string {
   return (s || '')
@@ -33,20 +33,26 @@ declare global {
 }
 
 function esNavegador(): boolean {
-  return typeof window !== 'undefined' && typeof (window as any).webkitSpeechRecognition !== 'undefined';
+  // El reconocimiento nativo es opcional: MediaRecorder + Whisper también
+  // funciona en navegadores sin SpeechRecognition (por ejemplo Firefox).
+  return typeof window !== 'undefined';
 }
 
 async function transcribeWithWhisper(blob: Blob, objetivo: string): Promise<string | null> {
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), 25000);
   try {
     const form = new FormData();
     form.append('audio', blob, 'lectura.webm');
     form.append('objetivo', objetivo);
-    const r = await fetch('/api/transcribe', { method: 'POST', body: form });
+    const r = await fetch('/api/transcribe', { method: 'POST', body: form, signal: ctrl.signal });
     if (!r.ok) return null;
     const data = await r.json();
     return (data?.texto as string) || null;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -59,13 +65,14 @@ async function transcribeConReintento(blob: Blob, objetivo: string): Promise<str
   return transcribeWithWhisper(blob, objetivo);
 }
 
-function listenNative(timeoutMs = 6000): Promise<string | null> {
+function listenNative(timeoutMs = 6000, onStart?: (rec: any) => void): Promise<string | null> {
   return new Promise((resolve) => {
     if (!esNavegador()) return resolve(null);
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return resolve(null);
     try {
       const rec = new SR();
+      onStart?.(rec);
       rec.lang = 'es-ES';
       rec.interimResults = false;
       rec.maxAlternatives = 1;
@@ -110,7 +117,27 @@ export function useReadingLesson(objetivo: string) {
   const [intentos, setIntentos] = useState(0);
   const [volumen, setVolumen] = useState(0);
   const mediaRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const reconocimientoRef = useRef<any>(null);
   const chunks = useRef<Blob[]>([]);
+  const canceladoRef = useRef(false);
+
+  // El botón "Parar" corta de verdad la grabación y el micrófono.
+  const detenerGrabacion = useCallback(() => {
+    canceladoRef.current = true;
+    try {
+      mediaRef.current?.stop();
+    } catch { /* noop */ }
+    try {
+      reconocimientoRef.current?.abort();
+    } catch { /* noop */ }
+    reconocimientoRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setGrabando(false);
+    setEvaluando(false);
+    setVolumen(0);
+  }, []);
 
   const evaluar = useCallback(
     async (textoOido: string | null) => {
@@ -138,10 +165,14 @@ export function useReadingLesson(objetivo: string) {
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.current.push(e.data);
     };
+    let resolver!: (b: Blob) => void;
     const stopped: Promise<Blob> = new Promise((res) => {
+      resolver = res;
       mr.onstop = () => {
         res(new Blob(chunks.current, { type: 'audio/webm' }));
       };
+      // Si el grabador falla antes de arrancar, no dejamos la promesa colgada.
+      mr.onerror = () => res(new Blob([], { type: 'audio/webm' }));
     });
 
     const Ctx = window.AudioContext || (window as any).webkitAudioContext;
@@ -160,8 +191,15 @@ export function useReadingLesson(objetivo: string) {
       let silencioDesde = 0;
       const inicio = Date.now();
       await new Promise<void>((listo) => {
-        mr.start();
+        try {
+          mr.start();
+        } catch {
+          resolver(new Blob([], { type: 'audio/webm' }));
+          listo();
+          return;
+        }
         const vigilar = () => {
+          if (canceladoRef.current) return listo();
           an.getFloatTimeDomainData(buf);
           let suma = 0;
           for (let i = 0; i < buf.length; i++) suma += buf[i] * buf[i];
@@ -197,35 +235,90 @@ export function useReadingLesson(objetivo: string) {
   }, []);
 
   const grabarYEvaluar = useCallback(async () => {
+    canceladoRef.current = false;
     // Intenta MediaRecorder + Whisper, con fallback nativo
     if (!esNavegador() || !navigator.mediaDevices?.getUserMedia) {
-      const t = await listenNative();
-      return evaluar(t);
+      const t = await listenNative(6000, (rec) => { reconocimientoRef.current = rec; });
+      reconocimientoRef.current = null;
+      if (canceladoRef.current) return { bien: false, raw: '', dist: 999, cancelado: true };
+      return { ...(await evaluar(t)), cancelado: false };
     }
     let stream: MediaStream | null = null;
     try {
       setGrabando(true);
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      // Si el componente se desmontó mientras el navegador pedía permiso,
+      // cerramos el micrófono en cuanto se concede y no grabamos nada.
+      if (canceladoRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return { bien: false, raw: '', dist: 999, cancelado: true };
+      }
       const blob = await grabarConVAD(stream);
       setGrabando(false);
+      if (canceladoRef.current) {
+        return { bien: false, raw: '', dist: 999, cancelado: true };
+      }
       const textoWhisper = await transcribeConReintento(blob, objetivo);
-      if (textoWhisper) return evaluar(textoWhisper);
-      const t2 = await listenNative(5000);
-      return evaluar(t2);
+      if (canceladoRef.current) {
+        return { bien: false, raw: '', dist: 999, cancelado: true };
+      }
+      if (textoWhisper) return { ...(await evaluar(textoWhisper)), cancelado: false };
+      const t2 = await listenNative(5000, (rec) => { reconocimientoRef.current = rec; });
+      reconocimientoRef.current = null;
+      if (canceladoRef.current) {
+        return { bien: false, raw: '', dist: 999, cancelado: true };
+      }
+      return { ...(await evaluar(t2)), cancelado: false };
     } catch {
       setGrabando(false);
-      const t = await listenNative();
-      return evaluar(t);
+      if (canceladoRef.current) {
+        return { bien: false, raw: '', dist: 999, cancelado: true };
+      }
+      const t = await listenNative(6000, (rec) => { reconocimientoRef.current = rec; });
+      reconocimientoRef.current = null;
+      if (canceladoRef.current) return { bien: false, raw: '', dist: 999, cancelado: true };
+      return { ...(await evaluar(t)), cancelado: false };
     } finally {
       stream?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     }
   }, [evaluar, objetivo, grabarConVAD]);
 
   const reset = useCallback(() => {
+    canceladoRef.current = true;
+    try {
+      mediaRef.current?.stop();
+    } catch { /* noop */ }
+    try {
+      reconocimientoRef.current?.abort();
+    } catch { /* noop */ }
+    reconocimientoRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setGrabando(false);
+    setEvaluando(false);
     setOido('');
     setIntentos(0);
     setVolumen(0);
   }, []);
 
-  return { grabando, evaluando, oido, intentos, volumen, grabarYEvaluar, reset };
+  // Privacidad: al salir de la actividad se apaga el micrófono aunque el
+  // componente se desmonte a mitad de una grabación.
+  useEffect(() => {
+    return () => {
+      canceladoRef.current = true;
+      try {
+        mediaRef.current?.stop();
+      } catch { /* noop */ }
+      try {
+        reconocimientoRef.current?.abort();
+      } catch { /* noop */ }
+      reconocimientoRef.current = null;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
+
+  return { grabando, evaluando, oido, intentos, volumen, grabarYEvaluar, reset, detenerGrabacion };
 }

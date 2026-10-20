@@ -1,34 +1,32 @@
-﻿import { useState, useCallback } from 'react';
-import { PREGUNTAS_EVAL, RangoId, recomendarNivelConIA } from '../hooks/useEvaluacionInicial';
-import { type ChildProfile } from '../data/curriculum';
+﻿import { useState, useCallback, useEffect, useRef } from 'react';
+import { PREGUNTAS_EVAL, recomendarNivelConIA, type RangoId, type ResultadoEval } from '../hooks/useEvaluacionInicial';
+import { nuevoId, type ChildProfile } from '../data/curriculum';
 
 export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { rango: RangoId; nombre: string; avatar: string; onListo: (perfil: ChildProfile) => void }) {
   const [idx, setIdx] = useState(0);
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(false);
-  const [resultado, setResultado] = useState<any>(null);
+  const [resultado, setResultado] = useState<ResultadoEval | null>(null);
   const [perfilFinal, setPerfilFinal] = useState<ChildProfile | null>(null);
   const [terminado, setTerminado] = useState(false);
   const [error, setError] = useState('');
+  // Evita dobles toques: en la última pregunta podían lanzarse dos
+  // evaluaciones y crear dos perfiles.
+  const enviandoRef = useRef(false);
+
+  useEffect(() => {
+    enviandoRef.current = false;
+  }, [idx]);
 
   const misPreguntas = PREGUNTAS_EVAL.filter((p) => p.rango === rango);
   const pregunta = misPreguntas[idx];
   const finalizado = idx >= misPreguntas.length;
 
-  const responder = useCallback((valor: string) => {
-    setRespuestas((prev) => ({ ...prev, [pregunta.id]: valor }));
-    if (idx + 1 < misPreguntas.length) {
-      setIdx((i) => i + 1);
-    } else {
-      finalizar();
-    }
-  }, [pregunta, idx, misPreguntas.length]);
-
-  const finalizar = async () => {
+  const finalizar = useCallback(async (respuestasFinales: Record<string, string>) => {
     setCargando(true);
     setError('');
     let perfil: ChildProfile = {
-      id: `peque_${Date.now()}`,
+      id: nuevoId(),
       nombre,
       rango,
       avatar,
@@ -38,7 +36,7 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
       nivel: 0,
     };
     try {
-      const rec = await recomendarNivelConIA(respuestas, rango, nombre);
+      const rec = await recomendarNivelConIA(respuestasFinales, rango, nombre);
       setResultado(rec);
       perfil = {
         ...perfil,
@@ -47,14 +45,38 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
         evaluacionInicial: rec,
       };
     } catch {
+      const base: ResultadoEval = {
+        rango,
+        puntaje: 0,
+        total: 0,
+        nivelRecomendado: 0,
+        etapaRecomendada: 'vocales',
+        observaciones: [],
+      };
       setError('No se pudo consultar la IA. Se usará el nivel inicial por defecto.');
+      // Aunque falle la red, el peque siempre puede empezar con un perfil válido.
+      perfil = { ...perfil, etapa: base.etapaRecomendada, nivel: base.nivelRecomendado, evaluacionInicial: base };
+      setResultado(base);
     }
-    // El guardado y la navegación los hace el padre (App), que además
-    // asigna la lección inicial. Aquí solo preparamos el perfil.
+    // El guardado y la navegación los hace el padre (WelcomeScreen/App), que
+    // además asigna la lección inicial. Aquí solo preparamos el perfil.
     setPerfilFinal(perfil);
     setCargando(false);
     setTerminado(true);
-  };
+  }, [rango, nombre, avatar]);
+
+  const responder = useCallback((valor: string) => {
+    if (!pregunta || enviandoRef.current) return;
+    enviandoRef.current = true;
+    // Se incluye la respuesta recién pulsada: antes la última se perdía.
+    const nuevas = { ...respuestas, [pregunta.id]: valor };
+    setRespuestas(nuevas);
+    if (idx + 1 < misPreguntas.length) {
+      setIdx((i) => i + 1);
+    } else {
+      finalizar(nuevas);
+    }
+  }, [pregunta, respuestas, idx, misPreguntas.length, finalizar]);
 
   const progress = finalizado ? 100 : Math.round(((idx) / misPreguntas.length) * 100);
 
@@ -67,18 +89,22 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
     );
   }
 
-  if (terminado && resultado) {
+  if (terminado && perfilFinal) {
+    const nivel = resultado?.nivelRecomendado ?? perfilFinal.nivel;
+    const etapa = resultado?.etapaRecomendada ?? perfilFinal.etapa;
+    const observaciones = resultado?.observaciones ?? [];
     return (
       <div className="app sky" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '1rem', textAlign: 'center' }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎯</div>
         <h2 style={{ color: '#5b3a80', margin: '0.5rem 0' }}>¡Evaluación terminada, {nombre}!</h2>
         <p style={{ color: '#6b6880', maxWidth: '420px', margin: '0 auto 1rem', fontWeight: '700' }}>
-          Nivel recomendado: <strong>{resultado.nivelRecomendado}</strong> · Etapa: <strong>{resultado.etapaRecomendada}</strong>
+          Nivel recomendado: <strong>{nivel}</strong> · Etapa: <strong>{etapa}</strong>
         </p>
-        {resultado.observaciones && resultado.observaciones.length > 0 && (
+        {error && <p style={{ color: '#ff6b6b', maxWidth: '420px', margin: '0 auto 1rem' }}>{error}</p>}
+        {observaciones.length > 0 && (
           <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: '16px', padding: '1rem', maxWidth: '420px', margin: '0 auto', color: '#333', fontSize: '0.95rem', textAlign: 'left' }}>
             <strong style={{ display: 'block', marginBottom: '0.4rem' }}>Para la familia:</strong>
-            {resultado.observaciones.map((o: string, i: number) => <div key={i}>• {o}</div>)}
+            {observaciones.map((o: string, i: number) => <div key={i}>• {o}</div>)}
           </div>
         )}
         <button
