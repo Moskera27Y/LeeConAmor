@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { leerRecordar, setRecordar, supabase, SUPABASE_ACTIVO } from '../lib/supabase';
+import { useFocoAtrapado } from '../hooks/useFocoAtrapado';
 
 interface Props {
   onListo: () => void;
@@ -18,19 +19,12 @@ export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }:
   const [recordar, setRecordarUi] = useState(() => leerRecordar());
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
-
-  useEffect(() => {
-    if (bloqueado) return;
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [bloqueado, onClose]);
+  const cerrar = bloqueado ? () => {} : onClose;
+  const refContenedor = useFocoAtrapado(true, cerrar);
 
   if (!SUPABASE_ACTIVO) {
     return (
-      <div className="padres-overlay">
+      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Nube no configurada" ref={refContenedor}>
         <div className="padres-card" style={{ textAlign: 'center' }}>
           <h2>☁️ Nube no configurada</h2>
           <p>El juego funciona guardando en este dispositivo. Para sincronizar entre dispositivos, configura Supabase (ver README sección Nube).</p>
@@ -89,7 +83,7 @@ export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }:
   };
 
   return (
-    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Cuenta de padres">
+    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Cuenta de padres" ref={refContenedor}>
       <div className="padres-card">
         <h2>👪 Cuenta de padres</h2>
         <p className="padres-sub">Guarda el progreso en la nube y úsalo en varios dispositivos.</p>
@@ -99,16 +93,17 @@ export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }:
         </div>
         {modo === 'registro' && (
           <>
-            <label className="field-label">Tu nombre</label>
-            <input className="field-input" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: María" />
+            <label className="field-label" htmlFor="padre-nombre">Tu nombre</label>
+            <input id="padre-nombre" className="field-input" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: María" />
           </>
         )}
-        <label className="field-label">Correo</label>
-        <input className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@ejemplo.com" />
-        <label className="field-label">Contraseña (mínimo 6 letras)</label>
-        <input className="field-input" type="password" value={clave} onChange={(e) => setClave(e.target.value)} placeholder="••••••" />
-        <label className="check-row">
+        <label className="field-label" htmlFor="padre-correo">Correo</label>
+        <input id="padre-correo" className="field-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tucorreo@ejemplo.com" autoComplete="email" />
+        <label className="field-label" htmlFor="padre-clave">Contraseña (mínimo 6 letras)</label>
+        <input id="padre-clave" className="field-input" type="password" value={clave} onChange={(e) => setClave(e.target.value)} placeholder="••••••" autoComplete="current-password" />
+        <label className="check-row" htmlFor="recordar-sesion">
           <input
+            id="recordar-sesion"
             type="checkbox"
             checked={recordar}
             onChange={(e) => {

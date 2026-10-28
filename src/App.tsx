@@ -625,6 +625,8 @@ const motivoTexto =
         <div className="kid-id">
           <span
             className="kid-avatar"
+            role="img"
+            aria-label={`Avatar de ${profile.nombre}`}
             onPointerDown={pressStart}
             onPointerUp={pressEnd}
             onPointerLeave={pressEnd}
@@ -632,11 +634,11 @@ const motivoTexto =
             {profile.avatar}
           </span>
           <div>
-            <div className="kid-name">¡Hola, {profile.nombre}! 💛{graduado && ' 🎓'}</div>
-            <div className="kid-range">{profile.rango === '3-5' ? '🎨 3-5 Pre-lector' : '📖 6-8 Silábico'}</div>
+            <h1 className="kid-name">¡Hola, {profile.nombre}! 💛{graduado && ' 🎓'}</h1>
+            <p className="kid-range">{profile.rango === '3-5' ? '🎨 3-5 Pre-lector' : '📖 6-8 Silábico'}</p>
           </div>
         </div>
-        <button className="corner-peques" onClick={() => setShowPeques(true)} title="Zona de padres" aria-label="Zona de padres">
+        <button className="corner-peques" onClick={() => setShowPeques(true)} aria-label="Zona de padres">
           👪
         </button>
       </header>
@@ -644,9 +646,9 @@ const motivoTexto =
       <main className="app-main">
         <div className="progress-tracker progress-grande">
           <div className="progress-score">⭐ {score}</div>
-          <div className="progress-label">
+          <h2 className="progress-label">
             {graduado ? '🎓 Curso completado' : `📖 Curso de lectura · Lección ${leccionNum}/${totalLecciones}`}
-          </div>
+          </h2>
           <div className="progress-bar progress-bar-grande"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'center', marginTop: '0.5rem', flexWrap: 'wrap' }}>
             {isSpeaking && (
@@ -670,28 +672,28 @@ const motivoTexto =
           <div className="actividad-leccion" style={{ maxWidth: '500px', margin: '0 auto' }}>
             <div className="progress-tracker progress-grande" style={{ marginBottom: '1rem' }}>
               <div className="progress-score">⭐ {score}</div>
-              <div className="progress-label">
+              <h3 className="progress-label">
                 {actividadActual.leccion.titulo} · {actividadActual.actividadIndex + 1}/{actividadActual.leccion.actividades.length}
-              </div>
+              </h3>
               <div className="progress-bar progress-bar-grande">
                 <div className="progress-fill" style={{ width: `${pctLeccion}%` }} />
               </div>
-              <div className="progress-label" style={{ fontSize: '0.8rem', opacity: 0.85, marginTop: '0.35rem' }}>
+              <p className="progress-label" style={{ fontSize: '0.82rem', opacity: 0.85, marginTop: '0.35rem' }}>
                 Lección {leccionNum}/{totalLecciones} · {etapaInfo.icono} {etapaInfo.nombre}
-              </div>
+              </p>
             </div>
             {estadoGamificacion && (
               <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(255,255,255,0.9)', borderRadius: '16px' }}>
-                <div style={{ fontSize: '0.9rem', color: '#764ba2', marginBottom: '0.5rem', fontWeight: '800' }}>🏆 Tus insignias</div>
+                <h4 style={{ fontSize: '0.9rem', color: '#764ba2', marginBottom: '0.5rem', fontWeight: '800' }}>🏆 Tus insignias</h4>
                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                   {obtenerInsigniasDesbloqueadas(estadoGamificacion).map((ins) => (
                     <span key={ins.id} className="insignia-badge" title={ins.descripcion}>{ins.emoji}</span>
                   ))}
                   {obtenerInsigniasDesbloqueadas(estadoGamificacion).length === 0 && (
-                    <span style={{ fontSize: '0.88rem', color: '#8a7ba8' }}>Gana tu primera insignia 💛</span>
+                    <span style={{ fontSize: '0.88rem', color: '#5f5670' }}>Gana tu primera insignia 💛</span>
                   )}
                   {estadoGamificacion.rachaDias > 0 && (
-                    <span style={{ marginLeft: 'auto', fontSize: '0.85rem', fontWeight: '800', color: '#ff6b6b' }}>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.9rem', fontWeight: '800', color: '#b3261e' }}>
                       🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
                     </span>
                   )}
@@ -1085,7 +1087,7 @@ onResultado={manejarResultado}
       {finCurso && (
         <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Curso completado">
           <div className="padres-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
-            <div style={{ fontSize: '4rem' }}>🎓🎉</div>
+            <div style={{ fontSize: '4rem' }} aria-hidden="true">🎓🎉</div>
             <h2>¡Curso completado, {profile.nombre}!</h2>
             <p style={{ color: '#5b3a80', fontWeight: '700' }}>
               Terminaste todo el recorrido de lectura con ⭐ {score} puntos.

@@ -67,19 +67,23 @@ export default function WelcomeScreen({ onDone }: Props) {
       <h2>Hola papá y mamá 👋</h2>
       <p className="welcome-sub">Cuéntanos de tu peque para adaptar la enseñanza con amor.</p>
 
-      <label className="field-label">Primer nombre del niño/a</label>
+      <label className="field-label" htmlFor="nombre-peque">Primer nombre del niño/a</label>
       <input
+        id="nombre-peque"
         className="field-input"
         placeholder="Ej: Sofi"
         value={nombre}
         maxLength={20}
+        autoComplete="off"
         onChange={(e) => setNombre(e.target.value)}
       />
 
-      <label className="field-label">Elige el rango de edad</label>
-      <div className="range-grid">
+      <span className="field-label" id="etiqueta-rango">Elige el rango de edad</span>
+      <div className="range-grid" role="radiogroup" aria-labelledby="etiqueta-rango">
         <button
           type="button"
+          role="radio"
+          aria-checked={rango === '3-5'}
           className={`range-card ${rango === '3-5' ? 'active' : ''}`}
           onClick={() => setRango('3-5')}
         >
@@ -89,6 +93,8 @@ export default function WelcomeScreen({ onDone }: Props) {
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={rango === '6-8'}
           className={`range-card ${rango === '6-8' ? 'active' : ''}`}
           onClick={() => setRango('6-8')}
         >
@@ -98,10 +104,18 @@ export default function WelcomeScreen({ onDone }: Props) {
         </button>
       </div>
 
-      <label className="field-label">Elige su animalito</label>
-      <div className="avatar-row">
+      <span className="field-label" id="etiqueta-avatar">Elige su animalito</span>
+      <div className="avatar-row" role="radiogroup" aria-labelledby="etiqueta-avatar">
         {AVATARS.map((a) => (
-          <button key={a} type="button" className={`avatar-btn ${avatar === a ? 'active' : ''}`} onClick={() => setAvatar(a)}>
+          <button
+            key={a}
+            type="button"
+            role="radio"
+            aria-checked={avatar === a}
+            aria-label={`Animalito ${a}`}
+            className={`avatar-btn ${avatar === a ? 'active' : ''}`}
+            onClick={() => setAvatar(a)}
+          >
             {a}
           </button>
         ))}
@@ -110,8 +124,8 @@ export default function WelcomeScreen({ onDone }: Props) {
       <VoicePicker />
 
       <div className="welcome-row">
-        <label className="check-row">
-          <input type="checkbox" checked={voiceOn} onChange={(e) => setVoiceOn(e.target.checked)} />
+        <label className="check-row" htmlFor="voz-activada">
+          <input id="voz-activada" type="checkbox" checked={voiceOn} onChange={(e) => setVoiceOn(e.target.checked)} />
           🔊 Voz suave de Léo activada
         </label>
         <button type="button" className="ghost-btn" onClick={probarMicro}>🎤 Probar micrófono</button>

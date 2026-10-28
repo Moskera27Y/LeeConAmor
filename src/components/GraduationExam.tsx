@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ABECEDARIO, VOCALES } from '../data/motorNiveles';
 import { fraseToca } from '../data/frasesVoz';
 import { F_BUEN_INTENTO_EXAMEN, F_GRADUACION } from '../data/frases';
+import { useFocoAtrapado } from '../hooks/useFocoAtrapado';
 
 interface Props {
   speak: (t: string) => void;
@@ -34,6 +35,7 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
   const [fin, setFin] = useState(false);
   const [elegida, setElegida] = useState<string | null>(null);
   const temporizador = useRef<number | null>(null);
+  const refContenedor = useFocoAtrapado(true, onClose);
 
   useEffect(() => {
     return () => {
@@ -86,7 +88,7 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
 
   if (fin) {
     return (
-      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Resultado del examen">
+      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Resultado del examen" ref={refContenedor}>
         <div className="padres-card" style={{ textAlign: 'center' }}>
           {aciertos >= 5 ? (
             <>
@@ -109,7 +111,7 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
   }
 
   return (
-    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Examen de graduación">
+    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Examen de graduación" ref={refContenedor}>
       <div className="padres-card" style={{ textAlign: 'center' }}>
         <h2>🎓 Examen ({idx + 1}/6)</h2>
         <p>Pulsa 🔊 para escuchar qué letra o palabra debe tocar el peque.</p>

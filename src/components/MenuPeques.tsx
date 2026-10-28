@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { esGraduado, loadMotor, loadScore, type ChildProfile } from '../data/curriculum';
 import { progresoCurso } from '../data/motorNiveles';
+import { useFocoAtrapado } from '../hooks/useFocoAtrapado';
 import WelcomeScreen from './WelcomeScreen';
 
 interface Props {
@@ -27,19 +28,12 @@ export default function MenuPeques({
   const [resp, setResp] = useState('');
   const [abierto, setAbierto] = useState(false);
   const [nuevo, setNuevo] = useState(false);
-
-  useEffect(() => {
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [onClose]);
+  const refContenedor = useFocoAtrapado(true, onClose);
 
   // Pantalla de verificación de adulto (suma fácil)
   if (!abierto) {
     return (
-      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Zona de padres">
+      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Zona de padres" ref={refContenedor}>
         <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>🔒 Zona de padres</h2>
@@ -48,7 +42,9 @@ export default function MenuPeques({
           <p style={{ textAlign: 'center', margin: '0 0 1.5rem', color: '#333' }}>
             Solo adultos: ¿cuánto es <strong>{a} + {b}</strong>?
           </p>
+          <label className="field-label" htmlFor="respuesta-peques">Respuesta</label>
           <input
+            id="respuesta-peques"
             className="field-input"
             inputMode="numeric"
             value={resp}
@@ -76,7 +72,7 @@ export default function MenuPeques({
   // Pantalla de crear nuevo peque
   if (nuevo) {
     return (
-      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Nuevo peque">
+      <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Nuevo peque" ref={refContenedor}>
         <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h2>➕ Nuevo peque</h2>
@@ -98,7 +94,7 @@ export default function MenuPeques({
 
   // Pantalla principal: elegir peque
   return (
-    <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Elegir peque">
+    <div className="padres-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Elegir peque" ref={refContenedor}>
       <div className="padres-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>👪 ¿Quién aprende ahora?</h2>

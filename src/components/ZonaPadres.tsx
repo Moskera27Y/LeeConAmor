@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useState } from 'react';
 import VoicePicker from './VoicePicker';
 import MapaDominio from './MapaDominio';
+import { useFocoAtrapado } from '../hooks/useFocoAtrapado';
 import type { EstadoMotor } from '../data/motorNiveles';
 import { dominio } from '../data/motorNiveles';
 
@@ -39,22 +40,17 @@ export default function ZonaPadres(p: Props) {
   const [resp, setResp] = useState('');
   const [abierto, setAbierto] = useState(false);
   const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>( 'resumen');
-
-  useEffect(() => {
-    const alTeclear = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') p.onClose();
-    };
-    window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
-  }, [p.onClose]);
+  const refContenedor = useFocoAtrapado(true, p.onClose);
 
   if (!abierto) {
     return (
-      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres">
+      <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres" ref={refContenedor}>
         <div className="padres-card">
           <h2>🔒 Zona de padres</h2>
           <p>Solo adultos: ¿cuánto es {a} + {b}?</p>
+          <label className="field-label" htmlFor="respuesta-padres">Respuesta</label>
           <input
+            id="respuesta-padres"
             className="field-input"
             inputMode="numeric"
             value={resp}
@@ -105,7 +101,7 @@ export default function ZonaPadres(p: Props) {
     : 'Oraciones';
 
   return (
-    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres">
+    <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Zona de padres" ref={refContenedor}>
       <div className="padres-card">
         <h2>👪 Zona de padres</h2>
         <p className="padres-sub">{p.avatar} {p.nombre} · {p.rango === '3-5' ? '3-5 Pre-lector' : '6-8 Silábico'} · voz {nombreFuente}</p>
@@ -169,10 +165,10 @@ export default function ZonaPadres(p: Props) {
             </div>
             {letrasDificiles.length > 0 && (
               <div>
-                <h4 style={{ margin: '0 0 0.5rem', color: '#ff6b6b', fontSize: '1rem' }}>⚠️ Letras que le cuestan más</h4>
+                <h4 style={{ margin: '0 0 0.5rem', color: '#b3261e', fontSize: '1rem' }}>⚠️ Letras que le cuestan más</h4>
                 <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                   {letrasDificiles.map(({ letra, fallos }) => (
-                    <span key={letra} style={{ background: 'rgba(255,107,107,0.2)', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.9rem', color: '#ff6b6b' }}>
+                    <span key={letra} style={{ background: 'rgba(255,107,107,0.2)', borderRadius: '8px', padding: '0.4rem 0.8rem', fontSize: '0.9rem', color: '#b3261e' }}>
                       {letra} ({fallos} fallos)
                     </span>
                   ))}
@@ -183,7 +179,7 @@ export default function ZonaPadres(p: Props) {
               <p style={{ color: '#6b6880', fontSize: '0.9rem' }}>Aún no hay fallos registrados. Sigue practicando para ver el mapa de dominio.</p>
             )}
             {p.graduado && (
-              <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#28a745' }}>
+              <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#186a3b', fontWeight: '700' }}>
                 🎓 Ya graduada/o ¡felicidades!
               </div>
             )}
