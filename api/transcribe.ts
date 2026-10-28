@@ -6,12 +6,40 @@
 
 import { IncomingForm } from 'formidable';
 import fs from 'fs';
-import { permitirPeticion, responderLimite } from './_limite';
 
-export const config = {
-  api: { bodyParser: false },
-  maxDuration: 60,
-};
+export const config = { maxDuration: 60 };
+
+type Registro = { usos: number; reinicio: number };
+
+const limites = new Map<string, Registro>();
+
+function ipDe(req: any): string {
+  const fwd = String(req.headers?.['x-forwarded-for'] || '');
+  return fwd.split(',')[0].trim() || String(req.socket?.remoteAddress || 'anon');
+}
+
+function permitirPeticion(req: any, maximo: number, ventanaMs = 60_000): boolean {
+  const ip = ipDe(req);
+  const ahora = Date.now();
+  const actual = limites.get(ip);
+  if (!actual || actual.reinicio <= ahora) {
+    limites.set(ip, { usos: 1, reinicio: ahora + ventanaMs });
+    return true;
+  }
+  if (actual.usos >= maximo) return false;
+  actual.usos += 1;
+  if (limites.size > 5000) {
+    for (const [k, v] of limites) {
+      if (v.reinicio <= ahora) limites.delete(k);
+    }
+  }
+  return true;
+}
+
+function responderLimite(res: any) {
+  res.setHeader('Retry-After', '60');
+  res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' });
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

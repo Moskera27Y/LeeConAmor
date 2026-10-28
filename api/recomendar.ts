@@ -7,9 +7,52 @@ const BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export const config = { maxDuration: 30 };
 
-import { cuerpoDemasiadoGrande, permitirPeticion, responderLimite } from './_limite';
+type Registro = { usos: number; reinicio: number };
+
+const limites = new Map<string, Registro>();
+
+function ipDe(req: any): string {
+  const fwd = String(req.headers?.['x-forwarded-for'] || '');
+  return fwd.split(',')[0].trim() || String(req.socket?.remoteAddress || 'anon');
+}
+
+function permitirPeticion(req: any, maximo: number, ventanaMs = 60_000): boolean {
+  const ip = ipDe(req);
+  const ahora = Date.now();
+  const actual = limites.get(ip);
+  if (!actual || actual.reinicio <= ahora) {
+    limites.set(ip, { usos: 1, reinicio: ahora + ventanaMs });
+    return true;
+  }
+  if (actual.usos >= maximo) return false;
+  actual.usos += 1;
+  if (limites.size > 5000) {
+    for (const [k, v] of limites) {
+      if (v.reinicio <= ahora) limites.delete(k);
+    }
+  }
+  return true;
+}
+
+function responderLimite(res: any) {
+  res.setHeader('Retry-After', '60');
+  res.status(429).json({ error: 'Demasiadas peticiones. Espera un momento.' });
+}
+
+function cuerpoDemasiadoGrande(req: any, maxBytes: number): boolean {
+  const largo = Number(req.headers?.['content-length'] || 0);
+  return Number.isFinite(largo) && largo > maxBytes;
+}
 
 export default async function handler(req: any, res: any) {
+  try {
+    return await manejar(req, res);
+  } catch {
+    res.status(500).json({ error: 'Error consultando la IA' });
+  }
+}
+
+async function manejar(req: any, res: any) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -36,7 +79,6 @@ export default async function handler(req: any, res: any) {
 
   const prompt = `Eres una maestra de educacion inicial en espanol. Un nino/a llamado ${nombre} (rango ${rango}) respondio esta evaluacion inicial de lectura:\n${resumenLocal}\n\nResponde SOLO con un JSON valido con estos campos: nivelRecomendado (numero), etapaRecomendada (texto), observaciones (array de frases cortas en espanol). No anadas texto extra.`;
 
-  try {
     const r = await fetch(BASE_URL, {
       method: 'POST',
       headers: {
@@ -93,7 +135,4 @@ export default async function handler(req: any, res: any) {
       ? json.observaciones.map((o: unknown) => String(o).slice(0, 140)).slice(0, 5)
       : null;
     res.status(200).json({ nivelRecomendado: nivel, etapaRecomendada: etapa, observaciones });
-  } catch {
-    res.status(500).json({ error: 'Error consultando la IA' });
-  }
 }
