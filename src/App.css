@@ -210,8 +210,8 @@ button { font-family: inherit; }
 .kid-avatar:hover  { transform: scale(1.08) rotate(-6deg); }
 .kid-avatar:active { transform: scale(.94); }
 
-.kid-name  { font-size: 1.15rem; font-weight: 900; color: var(--purple-dark); }
-.kid-range { font-size: .92rem; font-weight: 700; color: var(--ink-soft); }
+.kid-name  { font-size: 1.15rem; font-weight: 900; color: var(--purple-dark); margin: 0; }
+.kid-range { font-size: .92rem; font-weight: 700; color: var(--ink-soft); margin: 0; }
 
 .corner-peques {
   flex: 0 0 auto;
@@ -251,6 +251,7 @@ button { font-family: inherit; }
   font-size: .95rem;
   font-weight: 800;
   color: var(--ink);
+  margin: 0;
 }
 
 .progress-bar {
@@ -556,6 +557,7 @@ button { font-family: inherit; }
 }
 
 .reading-pista { color: var(--ink-soft); font-weight: 700; font-size: 1.02rem; }
+.reading-aviso { color: var(--ink-soft); font-size: .85rem; margin: .4rem 0; }
 .reading-fase  { color: var(--purple); font-weight: 800; margin: .5rem 0; }
 
 .reading-btns { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }

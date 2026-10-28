@@ -15,12 +15,15 @@ interface Props {
   onSiguiente: () => void;
 }
 
+const AVISO_SIN_MICRO = 'Este navegador no deja usar el micrófono aquí. Abre la página en https o en localhost.';
+
 export default function ReadingCard({ objetivo = '', imagen = '', pista = '', nombre = '', speak = () => {}, hablarSecuencia = async () => false, detener = () => {}, isSpeaking = false, onBien = () => {}, onSiguiente = () => {} }: Props & { key?: string }) {
-  const { grabando, evaluando, oido, intentos, volumen, grabarYEvaluar, reset, detenerGrabacion } = useReadingLesson(objetivo);
+  const { grabando, evaluando, oido, intentos, volumen, escuchandoVoz, motivo, distancia, grabarYEvaluar, reset, detenerGrabacion, hayReconocimientoNativo } = useReadingLesson(objetivo);
   const [lejos, setLejos] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [fase, setFase] = useState('');
   const [saltando, setSaltando] = useState(false);
+  const [sinMicro, setSinMicro] = useState(!navigator.mediaDevices?.getUserMedia && !hayReconocimientoNativo);
   const cancelado = useRef(false);
 
   useEffect(() => {
@@ -66,6 +69,13 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
     }, 700);
   };
 
+  const fraseDeAnimo = () => {
+    if (motivo === 'sin-audio') return F_NO_ESCUCHE;
+    if (motivo === 'solo-muletillas') return F_BUEN_INTENTO;
+    if (distancia !== null && distancia <= 3) return corregirNombre(nombre, pista);
+    return intentos % 2 === 0 ? animarNombre(nombre) : F_BUEN_INTENTO;
+  };
+
   const leer = async () => {
     if (bloqueado) return;
     cancelado.current = false;
@@ -102,25 +112,23 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
     }
     setOcupado(false);
     if (cancelado.current) return;
-    if (!r.raw) {
+
+    const repitePorEncima = intentos + 1 >= 3;
+    const casi = !repitePorEncima && motivo === 'distinto' && distancia !== null && distancia <= 3;
+    if (r.motivo === 'sin-audio') {
       setFase('');
-      speak(F_NO_ESCUCHE);
-    } else if (r.dist <= 3) {
-      // Tono 2: casi lo logra — animar a repetir
-      setLejos(false);
-      setFase('Casi, casi…');
-      speak(corregirNombre(nombre, pista));
-    } else if (intentos + 1 >= 3) {
-      setLejos(true);
-      setFase('');
-      speak(F_BUEN_ESFUERZO);
+    } else if (r.motivo === 'solo-muletillas') {
+      setFase('Te oí, pero no la palabra...');
+    } else if (casi) {
+      setFase('Casi, casi...');
     } else {
-      // Variedad amable para no sonar a regaño repetido
-      setLejos(false);
       setFase('');
-      speak(intentos % 2 === 0 ? animarNombre(nombre) : F_BUEN_INTENTO);
     }
+    setLejos(repitePorEncima);
+    speak(repitePorEncima ? F_BUEN_ESFUERZO : fraseDeAnimo());
   };
+
+  const mostrarAyuda = lejos || intentos >= 3 || sinMicro;
 
   return (
     <div className="reading-card">
@@ -131,7 +139,7 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
       <div className="reading-btns">
         <button className="listen-btn" onClick={escuchar} disabled={bloqueado}>🔊 Escucha el ejemplo</button>
         <button className="mic-btn" onClick={leer} disabled={bloqueado}>
-          {grabando ? '🎤 Escuchando...' : evaluando ? '💭 Pensando...' : ocupado ? '💛 Léo habla…' : '🎤 Leer en voz alta'}
+          {grabando ? (escuchandoVoz ? '🎤 Te escucho...' : '🎤 Escuchando...') : evaluando ? '💭 Pensando...' : ocupado ? '💛 Léo habla…' : '🎤 Leer en voz alta'}
         </button>
       </div>
       {(bloqueado || grabando) && (
@@ -142,16 +150,17 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
       {grabando && (
         <div className="vol-wrap" aria-hidden="true">
           <div className="vol-bar"><div className="vol-fill" style={{ width: `${Math.round(volumen * 100)}%` }} /></div>
-          <small>🎤 Te escucho… habla ahora</small>
+          <small>{escuchandoVoz ? '🎤 Te escucho… habla ahora' : '🎤 Acércate al micrófono y lee'}</small>
         </div>
       )}
       {oido && <div className="reading-oido">Te escuché: “{oido}” · intento {intentos}</div>}
-      {(lejos || intentos >= 3) && (
+      {mostrarAyuda && (
         <>
           <div className="reading-ayuda">Léo te ayuda: partimos en pedacitos 👉 {objetivo.split('').join('-')} · {pista}</div>
+          {sinMicro && <p className="reading-aviso">{AVISO_SIN_MICRO}</p>}
           {!ocupado && !saltando && (
             <>
-              <p style={{ color: '#6b6880', fontSize: '0.82rem', margin: '0.4rem 0' }}>
+              <p className="reading-aviso">
                 ¿El micrófono no funciona? Puedes continuar y practicar después.
               </p>
               <button className="ghost-btn" onClick={continuarSinMicro} style={{ minHeight: '48px' }}>
