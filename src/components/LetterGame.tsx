@@ -108,11 +108,12 @@ export default function LetterGame({
   // Al completar: reportar al motor una sola vez y celebrar con la voz clonada.
   useEffect(() => {
     if (!completado || reportado || !config) return;
+    const recompensa = config.reward || F_NIVEL_OK;
     setReportado(true);
     setBotTipo('bien');
-    setBotTexto(`${F_NIVEL_OK} ${config.reward}`);
-    if (hablarSecuencia) hablarSecuencia([F_NIVEL_OK, config.reward]);
-    else speak(config.reward);
+    setBotTexto(`${F_NIVEL_OK} ${recompensa}`);
+    if (hablarSecuencia) hablarSecuencia([F_NIVEL_OK, recompensa]);
+    else speak(recompensa);
     boomConfetti();
     if (onResultado) {
       const falladasUnicas = Array.from(new Set<string>(falladas));

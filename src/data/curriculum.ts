@@ -225,7 +225,7 @@ export function loadMotor(id: string): EstadoMotor {
     if (raw) {
       const m = JSON.parse(raw) as EstadoMotor;
       if (m && m.etapa && typeof m.n === 'number') {
-        return { pesos: {}, aciertos: {}, ...m };
+        return { ...m, pesos: m.pesos || {}, aciertos: m.aciertos || {} };
       }
     }
   } catch { /* noop */ }
