@@ -150,6 +150,11 @@ function recolectarTextos() {
   for (const m of lecTs.matchAll(/tipo:\s*'storytime'[^}]*?textoTTS:\s*'([^']+)'/g)) {
     for (const w of m[1].split(/\s+/)) push(w, PREFIJOS.palabra, 1);
   }
+  // Palabras de los cuentos de la biblioteca (src/data/cuentos.ts)
+  const cuentosTs = leerFuente('data', 'cuentos.ts');
+  for (const m of cuentosTs.matchAll(/texto:\s*'([^']+)'/g)) {
+    for (const w of m[1].split(/\s+/)) push(w, PREFIJOS.palabra, 1);
+  }
 
   /* --- Nombres: saludo + feedback (solo varía el nombre) --- */
   for (const n of NOMBRES) {

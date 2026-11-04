@@ -18,7 +18,8 @@ interface Props {
 const AVISO_SIN_MICRO = 'Este navegador no deja usar el micrófono aquí. Abre la página en https o en localhost.';
 
 export default function ReadingCard({ objetivo = '', imagen = '', pista = '', nombre = '', speak = () => {}, hablarSecuencia = async () => false, detener = () => {}, isSpeaking = false, onBien = () => {}, onSiguiente = () => {} }: Props & { key?: string }) {
-  const { grabando, evaluando, oido, intentos, volumen, escuchandoVoz, motivo, distancia, grabarYEvaluar, reset, detenerGrabacion, hayReconocimientoNativo } = useReadingLesson(objetivo);
+  const { grabando, evaluando, oido, intentos, volumen, escuchandoVoz, motivo, distancia, grabarYEvaluar, reset, detenerGrabacion, miVoz, hayReconocimientoNativo } = useReadingLesson(objetivo);
+  const esOracion = objetivo.includes(' ');
   const [lejos, setLejos] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [fase, setFase] = useState('');
@@ -133,7 +134,7 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
   return (
     <div className="reading-card">
       <div className="reading-imagen">{imagen}</div>
-      <div className="reading-objetivo">{objetivo}</div>
+      <div className="reading-objetivo" style={esOracion ? { fontSize: '1.9rem', lineHeight: 1.35 } : undefined}>{objetivo}</div>
       <div className="reading-pista">💡 {pista}</div>
       {fase && <div className="reading-fase">{fase}</div>}
       <div className="reading-btns">
@@ -142,6 +143,17 @@ export default function ReadingCard({ objetivo = '', imagen = '', pista = '', no
           {grabando ? (escuchandoVoz ? '🎤 Te escucho...' : '🎤 Escuchando...') : evaluando ? '💭 Pensando...' : ocupado ? '💛 Léo habla…' : '🎤 Leer en voz alta'}
         </button>
       </div>
+      {miVoz && !bloqueado && (
+        <button
+          className="ghost-btn"
+          onClick={() => {
+            try { void new Audio(miVoz).play(); } catch { /* noop */ }
+          }}
+          style={{ marginTop: '0.4rem', minHeight: '44px' }}
+        >
+          🎧 Óyete a ti mismo
+        </button>
+      )}
       {(bloqueado || grabando) && (
         <button className="ghost-btn" onClick={() => { cancelado.current = true; detener(); detenerGrabacion(); setOcupado(false); setFase(''); }}>
           ⏹ Parar

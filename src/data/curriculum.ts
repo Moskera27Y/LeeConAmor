@@ -66,6 +66,10 @@ export const READING_CARDS: Record<RangeId, { objetivo: string; imagen: string; 
     { objetivo: 'IMÁN', imagen: '🧲', pista: 'i-mán, despacio i-mán' },
     { objetivo: 'PRADO', imagen: '🌳', pista: 'pra-do, con pr despacito' },
     { objetivo: 'BRAZO', imagen: '💪', pista: 'bra-zo, con br despacito' },
+    // Oraciones completas: el último escalón del modo lectura libre.
+    // Ambas oraciones ya tienen audio clonado (objetivos del currículo).
+    { objetivo: 'El sol sale', imagen: '📖', pista: 'palabra por palabra: El-sol-sale' },
+    { objetivo: 'Mamá me ama', imagen: '💛', pista: 'palabra por palabra: Ma-má-me-a-ma' },
   ],
 };
 

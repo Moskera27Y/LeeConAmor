@@ -5,6 +5,7 @@ A. aaa como manzana. Repite conmigo.
 AM
 AMOR
 AMOR empieza con AM
+Adiós
 Ahora CA y BA.
 Ahora la palabra PAPA. Pa-pa, despacio pa-pa.
 Ahora la palabra SOL. Sol, sss-ooo-lll.
@@ -49,6 +50,7 @@ DADO
 DADO empieza con DA
 DRA
 DRAGÓN
+Dice
 E
 E con M dicen EM
 E. eee como elefante. Repite conmigo.
@@ -57,8 +59,10 @@ EM
 EME
 EME empieza con EM
 ESCUELA
+El
 El niño juega
 El sol sale
+En
 Escucha a Léo y toca la vocal.
 Escucha los sonidos y recuérdalos.
 Escucha primero y luego léelo tú.
@@ -110,6 +114,7 @@ GRA
 GRADO
 H
 HOSPITAL
+Hola
 Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.
 Hola, soy Léo. Vamos a leer juntitos con amor.
 I
@@ -134,6 +139,7 @@ LU
 LUNA
 LUNA empieza con LA
 LUNA empieza con LA. ¿Cuál es la primera sílaba?
+La
 La casa es grande
 La letra A suena aaa, como en manzana
 La letra E suena eee, como en elefante
@@ -158,9 +164,12 @@ MAMA empieza con MA. ¿Cuál es la primera sílaba?
 MAMA. ma-ma, despacio ma-ma. Repite conmigo.
 MARIPOSA
 MOR
+Mamá
 Mamá me ama
+Mira
 N
 NA
+Nadie
 No te oí bien. Probemos otra vez con amor.
 No te pude escuchar bien. Probemos otra vez con amor.
 O
@@ -358,9 +367,17 @@ Vamos con las sílabas MA y PA.
 W
 X
 Y
+Ya
+Yo
 Z
+a
 aaa como manzana
 aaa con mmm, AM
+al
+ama.
+amo
+amor.
+aquí.
 bbb con aaa, BA
 bbb rrr aaa, BRA
 bonita...
@@ -368,24 +385,48 @@ casa
 ce con aaa, CA
 ce rrr aaa, CRA
 cuento_corto
+da
 ddd con aaa, DA
+digo:
+día.
 eee como elefante
 eee con mmm, EM
 eff con aaa, FA
+el
+está
+hay
 iii como isla
 iii con mmm, IM
+la
 lll con aaa, LA
 lu-na, despacio lu-na
+luna
+luna.
+luz
 ma-ma, despacio ma-ma
+mamá.
+me
+mesa
+mesa.
+mira.
 mmm con aaa, MA
 muy
+no
+noche.
 ooo como oso
 ooo con mmm, OM
 pa-pa, despacio pa-pa
 pe-ra, despacio pe-ra
+pera.
 ppp rrr aaa, PRA
+rata.
 rrr suave con aaa, RA
+sale.
+sapo
+sol
 sol, sss-ooo-lll
+sol.
+solo.
 sss con aaa, SA
 sss-ooo-lll
 ttt con aaa, TA
@@ -458,6 +499,7 @@ vez
 ¡Genial! ⭐
 ¡Hermoso!
 ¡Hermoso! 💛
+¡Hola!
 ¡Hola! Vamos a aprender la vocal A. A dice aaa, como en manzana.
 ¡Hola! Vamos a leer juntitos.
 ¡Hola, Aarón! Vamos a leer juntitos.

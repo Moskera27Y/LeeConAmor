@@ -17,3 +17,6 @@ voz-clon-space/*.wav
 !voz-clon-space/referencia-leo.wav
 *.tsbuildinfo
 .DS_Store
+test-results/
+playwright-report/
+blob-report/

@@ -1131,3 +1131,17 @@ button { font-family: inherit; }
   0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
   100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
+
+/* Diploma imprimible: al imprimir solo se ve el diploma */
+@media print {
+  body * { visibility: hidden; }
+  #diploma, #diploma * { visibility: visible; }
+  #diploma {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    background: #fff;
+  }
+}

@@ -1,4 +1,5 @@
-import { supabase, SUPABASE_ACTIVO } from './supabase';
+import { supabase, SUPABASE_ACTIVO, type ClienteSupabase } from './supabase';
+import type { FilaHijo, FilaProgreso } from './tipos-db';
 import {
   loadMotor, loadScore, esGraduado, loadProfiles, saveProfile, nuevoId,
   motorKey, scoreKey, graduadoKey, idPerfilActivo, activarPerfil, versionSync, type ChildProfile,
@@ -63,7 +64,7 @@ function limpiarPendiente() {
   } catch { /* noop */ }
 }
 
-async function idNube(sb: any, padreId: string, local: ChildProfile, graduado: boolean): Promise<string> {
+async function idNube(sb: ClienteSupabase, padreId: string, local: ChildProfile, graduado: boolean): Promise<string> {
   try {
     const previo = localStorage.getItem(NUBE(local.id));
     if (previo) return previo;
@@ -73,7 +74,7 @@ async function idNube(sb: any, padreId: string, local: ChildProfile, graduado: b
   const yaVinculados = new Set(
     loadProfiles().map((p) => nubeVinculada(p.id)).filter(Boolean),
   );
-  const libre = (mismos || []).find((m: any) => !yaVinculados.has(m.id));
+  const libre = (mismos || []).find((m) => !yaVinculados.has(m.id));
   if (libre) {
     try {
       localStorage.setItem(NUBE(local.id), libre.id);
@@ -87,9 +88,9 @@ async function idNube(sb: any, padreId: string, local: ChildProfile, graduado: b
     .single();
   if (error || !data) throw error || new Error('sin id');
   try {
-    localStorage.setItem(NUBE(local.id), (data as any).id);
+    localStorage.setItem(NUBE(local.id), data.id);
   } catch { /* noop */ }
-  return (data as any).id as string;
+  return data.id;
 }
 
 // Evita dos subidas simultáneas (login + sincronización de fondo) que podrían
@@ -194,17 +195,19 @@ async function bajarNubeInterno(): Promise<boolean> {
     const { data: ses } = await sb.auth.getSession();
     const uid = ses?.session?.user?.id;
     if (!uid) return false;
-    const { data: hijos, error: errHijos } = await sb.from('hijos').select('*').eq('padre_id', uid);
+    const { data: hijosData, error: errHijos } = await sb.from('hijos').select('*').eq('padre_id', uid);
     if (errHijos) throw errHijos;
-    if (!hijos) return true;
+    if (!hijosData) return true;
+    const hijos = hijosData as FilaHijo[];
     // saveProfile activa el último perfil guardado; al bajar varios hijos
     // eso cambiaría el peque activo sin querer. Se restaura al terminar.
     const activoAntes = idPerfilActivo();
     let fallo = false;
-    for (const h of hijos as any[]) {
+    for (const h of hijos) {
       const rango: '3-5' | '6-8' = h.rango === '6-8' ? '6-8' : '3-5';
-      const { data: prog, error: errProg } = await sb.from('progreso').select('*').eq('hijo_id', h.id).maybeSingle();
+      const { data: progData, error: errProg } = await sb.from('progreso').select('*').eq('hijo_id', h.id).maybeSingle();
       if (errProg) throw errProg;
+      const prog = (progData || null) as FilaProgreso | null;
       const locales = loadProfiles();
       // Primero se busca el vínculo por id; el nombre solo sirve para adoptar
       // un perfil local que todavía no está vinculado. Así dos peques con el

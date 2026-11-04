@@ -47,6 +47,7 @@ npm run typecheck  # TypeScript
 npm test           # trazo + voz + tests unitarios
 npm run build      # build de producción
 npm run verify     # typecheck + build
+npm run test:e2e   # Playwright: crea peque, juegos y zona de padres
 ```
 
 - `npm run test:trazo`: validador de trazos.
@@ -85,10 +86,11 @@ api/                 funciones serverless (voz, transcripción, recomendación)
 public/              audios fijos, manifest, iconos, robots
 server/              generador/precache de voz y tests de Node
 src/components/      pantallas y juegos
-src/data/            currículo, lecciones, frases, motor y progreso
+src/data/            currículo, lecciones, frases, cuentos, motor y progreso
 src/hooks/           voz, lectura y evaluación
 src/lib/             Supabase, sync, gamificación, adaptabilidad, trazo
 supabase/schema.sql  tablas y políticas
+e2e/                 pruebas end-to-end (Playwright)
 ```
 
 ## Notas de seguridad

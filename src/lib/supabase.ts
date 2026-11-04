@@ -5,6 +5,22 @@ const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const SUPABASE_ACTIVO = Boolean(URL && ANON);
 
+// Cliente de Supabase. Los tipos de fila viven en tipos-db.ts y se aplican
+// explícitamente en sync.ts (el genérico de supabase-js resuelve mal las
+// queries encadenadas con este esquema pequeño).
+export type ClienteSupabase = SupabaseClient;
+
+// Salud de la nube para el semáforo de la zona de padres (sin coste).
+export async function saludNube(): Promise<boolean> {
+  if (!SUPABASE_ACTIVO) return false;
+  try {
+    const r = await fetch(`${URL}/auth/v1/health`, { headers: { apikey: ANON as string } });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 // "Recordar sesión": ON = persiste semanas en este aparato (localStorage);
 // OFF = solo memoria (al cerrar la pestaña se cierra la sesión).
 export function leerRecordar(): boolean {
@@ -31,13 +47,13 @@ export function setRecordar(v: boolean) {
   } catch { /* noop */ }
 }
 
-let cliente: SupabaseClient | null = null;
+let cliente: ClienteSupabase | null = null;
 // Se respeta la preferencia guardada desde el primer arranque; antes, al
 // recargar, se volvía a leer la sesión persistida aunque el adulto hubiera
 // desmarcado "recordar sesión".
 let sesionPersistida = leerRecordar();
 
-export function supabase(recordarSesion?: boolean): SupabaseClient | null {
+export function supabase(recordarSesion?: boolean): ClienteSupabase | null {
   if (!SUPABASE_ACTIVO) return null;
   const recordar = recordarSesion ?? sesionPersistida;
   // La preferencia de "recordar sesión" cambia el almacenamiento: hay que recrear el cliente.

@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, limpiarDatosLocales, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
-import { ETAPAS, ETAPAS_POR_RANGO, asegurarLeccionInicial, esUltimaLeccion, generarNivel, letrasDeObjetivo, numeroLeccionActual, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, progresoCurso, ABECEDARIO, type EstadoMotor, type ActividadConLeccion } from './data/motorNiveles';
+import { ETAPAS, ETAPAS_POR_RANGO, asegurarLeccionInicial, dominio, esUltimaLeccion, generarNivel, letrasDeObjetivo, numeroLeccionActual, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, progresoCurso, ABECEDARIO, type EstadoMotor, type ActividadConLeccion, type NivelJuego } from './data/motorNiveles';
 import { fraseInsignia, tipoObjetivo, VOCALES_JUEGO, PALABRAS_JUEGO, SILABAS_JUEGO } from './data/frasesVoz';
-import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
+import { F_BIEN_LECTURA, F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
 import { registrarEvento, cargarAdaptabilidad, type EstadoAdaptabilidad } from './lib/adaptividad';
@@ -17,12 +17,14 @@ const TrazoLetra = lazy(() => import('./components/TrazoLetra'));
 const MemoriaAuditiva = lazy(() => import('./components/MemoriaAuditiva'));
 import { useVoice } from './hooks/useVoice';
 import IndicadorVoz from './components/IndicadorVoz';
+import { Cargando, PantallaDespertando, PantallaAcceso, PantallaPortada } from './components/PantallasAcceso';
 import BotMessage from './components/BotMessage';
-import WelcomeScreen from './components/WelcomeScreen';
 import ZonaPadres from './components/ZonaPadres';
 import MenuPeques from './components/MenuPeques';
 const GraduationExam = lazy(() => import('./components/GraduationExam'));
 const AuthPadres = lazy(() => import('./components/AuthPadres'));
+const BibliotecaCuentos = lazy(() => import('./components/BibliotecaCuentos'));
+import AlbumInsignias from './components/AlbumInsignias';
 import LetterGame from './components/LetterGame';
 import ReadingCard from './components/ReadingCard';
 import EscucharYTocar from './components/EscucharYTocar';
@@ -34,15 +36,6 @@ import Storytime from './components/Storytime';
 
 function esNavegador(): boolean {
   return typeof window !== 'undefined';
-}
-
-function Cargando({ texto = 'Cargando juego…' }: { texto?: string }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '2rem', color: '#764ba2', fontWeight: '700' }}>
-      <div style={{ fontSize: '2rem' }}>🦉</div>
-      {texto}
-    </div>
-  );
 }
 
 // Opciones del MISMO tipo que el objetivo (vocales con vocales, letras con
@@ -81,16 +74,18 @@ function App() {
   const [emailNube, setEmailNube] = useState('');
   const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro' | 'local'>(SUPABASE_ACTIVO ? 'cargando' : 'local');
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
-  const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | 'letras' | null>(null);
+  const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | 'letras' | 'refuerzo' | 'cuentos' | null>(null);
   // Palabritas leídas en voz alta en esta sesión (pestaña "Solo lectura").
   const [leidasLibres, setLeidasLibres] = useState(0);
+  // Álbum de insignias del peque.
+  const [showAlbum, setShowAlbum] = useState(false);
   const [finCurso, setFinCurso] = useState(false);
   // Modo sin cuenta: no se intenta bajar/subir nada hasta que el adulto entre.
   const modoLocalRef = useRef(!SUPABASE_ACTIVO);
 
   // Todos los hooks van antes de cualquier return condicional (reglas de React).
   const voiceEnabled = profile?.voiceEnabled ?? true;
-  const { speak, hablarSecuencia, repeat, stop, isSpeaking, vozOcupada, restanteSeg, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
+  const { speak, hablarSecuencia, repeat, stop, isSpeaking, vozOcupada, restanteSeg, muted, toggleMute, vozLenta, toggleVozLenta, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
   // Si el perfil se creó sin voz, la UI debe ofrecer la salida manual en vez
   // de un botón de lectura que no puede sonar.
   const sinVoz = muted || !voiceEnabled;
@@ -110,6 +105,29 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [profile?.id],
   );
+
+  // Nivel de REFUERZO: las 4 letras con menos dominio (aciertos vs fallos).
+  // Practicar aquí mejora el dominio y avanza el motor como cualquier juego.
+  const nivelRefuerzo = useMemo<NivelJuego | null>(() => {
+    if (!profile) return null;
+    const base = generarNivel(motor, profile.rango);
+    const conDatos = [...new Set([...Object.keys(motor.pesos), ...Object.keys(motor.aciertos)])];
+    const debiles = conDatos
+      .map((l) => ({ l, d: dominio(motor, l) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 4)
+      .map((x) => x.l);
+    const objetivo = debiles.length > 0 ? debiles : base.targetLetters;
+    return {
+      ...base,
+      titulo: `Refuerzo 💪`,
+      descripcion: 'Practicamos lo que más te cuesta',
+      targetLetters: objetivo,
+      instruction: `Refacemos juntitos: ${objetivo.join(', ')}.`,
+      wordsToHighlight: [objetivo.join('')],
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, motor.etapa, motor.n, motor.pesos, motor.aciertos]);
 
   // Generar el saludo con el nombre UNA vez por niño (queda guardado para siempre)
   useEffect(() => {
@@ -535,57 +553,25 @@ function App() {
     }
   };
 
-  const pantallaAcceso = (
-    <div className="app sky">
-      <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
-      <header className="app-header">
-        <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
-        <p className="subtitle">Entra o juega sin cuenta 💛</p>
-      </header>
-      <main className="app-main">
-        <Suspense fallback={<Cargando texto="Cargando acceso…" />}>
-          <AuthPadres
-            bloqueado
-            onListo={() => { void entrarNube(); }}
-            onSinCuenta={() => {
-              modoLocalRef.current = true;
-              setEmailNube('');
-              setAuth('local');
-            }}
-            onClose={() => {}}
-          />
-        </Suspense>
-      </main>
-    </div>
-  );
+  const pantallaAccesoProps = {
+    onListo: () => { void entrarNube(); },
+    onSinCuenta: () => {
+      modoLocalRef.current = true;
+      setEmailNube('');
+      setAuth('local');
+    },
+  };
 
   if (SUPABASE_ACTIVO && auth === 'cargando') {
-    return (
-      <div className="app sky">
-        <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
-        <main className="app-main" style={{ textAlign: 'center', paddingTop: '20vh' }}>
-          <div style={{ fontSize: '4rem' }}>🦉</div>
-          <p style={{ color: '#5b3a80', fontSize: '1.3rem' }}>Léo está despertando…</p>
-        </main>
-      </div>
-    );
+    return <PantallaDespertando />;
   }
 
   if (SUPABASE_ACTIVO && auth === 'fuera') {
-    return pantallaAcceso;
+    return <PantallaAcceso {...pantallaAccesoProps} />;
   }
 
   if (!profile) {
-    return (
-      <div className="app sky">
-        <div className="sky-deco" aria-hidden="true"><span>☁️</span><span>☀️</span><span>🎈</span><span>🌈</span></div>
-        <header className="app-header">
-          <div className="logo-container"><div className="logo">📚</div><h1 className="title">LeeConAmor</h1></div>
-          <p className="subtitle">Enseña a leer a tus hijos de forma divertida y efectiva</p>
-        </header>
-        <main className="app-main"><WelcomeScreen onDone={refrescar} /></main>
-      </div>
-    );
+    return <PantallaPortada onDone={refrescar} />;
   }
 
   const levels = [generarNivel(motor, profile.rango)];
@@ -639,12 +625,12 @@ function App() {
     }
   };
 
-  // El juego libre de letras vive en dos pestañas (recorrido guiado y "más
-  // juegos") con la misma configuración; solo cambia la clave de remontaje.
-  const juegoLetras = (clave: string) => (
+  // El juego libre de letras vive en varias pestañas con la misma
+  // configuración; solo cambian la clave de remontaje y los niveles.
+  const juegoLetras = (clave: string, niveles: NivelJuego[] = levels) => (
     <LetterGame
       key={clave}
-      levels={levels}
+      levels={niveles}
       nombre={profile.nombre}
       speak={speak}
       hablarSecuencia={hablarSecuencia}
@@ -658,7 +644,7 @@ function App() {
       onRepeat={repeat}
       onResultado={manejarResultado}
       onAvanzar={avanzarMotor}
-      tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+      tituloNivel={niveles[0]?.titulo || `${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
     />
   );
 
@@ -690,6 +676,11 @@ function App() {
       <main className="app-main">
         <div className="progress-tracker progress-grande">
           <div className="progress-score">⭐ {score}</div>
+          {!!estadoGamificacion?.rachaDias && (
+            <div className="progress-score" style={{ marginLeft: '0.4rem' }} title="Días seguidos jugando">
+              🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
+            </div>
+          )}
           <h2 className="progress-label">
             {graduado ? '🎓 Curso completado' : `📖 Curso de lectura · Lección ${leccionNum}/${totalLecciones}`}
           </h2>
@@ -741,6 +732,14 @@ function App() {
                       🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
                     </span>
                   )}
+                  <button
+                    onClick={() => setShowAlbum(true)}
+                    className="icon-btn"
+                    style={{ minHeight: '34px', marginLeft: 'auto', fontSize: '0.8rem' }}
+                    aria-label="Abrir álbum de insignias"
+                  >
+                    🏅 Álbum
+                  </button>
                 </div>
               </div>
             )}
@@ -953,9 +952,37 @@ function App() {
               >
                 🅰️ Juego libre
               </button>
+              <button
+                className={`icon-btn ${masJuego === 'refuerzo' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('refuerzo')}
+              >
+                💪 Refuerzo
+              </button>
+              <button
+                className={`icon-btn ${masJuego === 'cuentos' ? 'active-tab' : ''}`}
+                onClick={() => setMasJuego('cuentos')}
+              >
+                📚 Cuentos
+              </button>
             </div>
             <Suspense fallback={<Cargando />}>
             {masJuego === 'letras' && juegoLetras(`libre-${motor.etapa}-${motor.n}`)}
+            {masJuego === 'refuerzo' && nivelRefuerzo && juegoLetras(`refuerzo-${motor.etapa}-${motor.n}`, [nivelRefuerzo])}
+            {masJuego === 'cuentos' && (
+              <BibliotecaCuentos
+                speak={speak}
+                hablarSecuencia={hablarSecuencia}
+                onTerminado={() => {
+                  setScore((s) => s + 20);
+                  registrarJuegoLibre('acierto');
+                  void petardos({ particleCount: 120, spread: 140, origin: { y: 0.5 } });
+                  speak(F_BIEN_LECTURA);
+                }}
+                isSpeaking={isSpeaking}
+                detener={stop}
+                muted={sinVoz}
+              />
+            )}
             {masJuego === 'escucha_elige' && (
               <EscuchaYElige
                 rango={profile.rango}
@@ -1012,6 +1039,13 @@ function App() {
       {/* Espera de voz global: contador mientras Léo habla y "¡Ya!" al terminar */}
       <IndicadorVoz ocupado={vozOcupada} restante={restanteSeg} />
 
+      {showAlbum && (
+        <AlbumInsignias
+          desbloqueadas={estadoGamificacion ? estadoGamificacion.insignias : []}
+          onClose={() => setShowAlbum(false)}
+        />
+      )}
+
       {showPadres && (
         <ZonaPadres
           nombre={profile.nombre}
@@ -1043,6 +1077,14 @@ function App() {
           }}
           emailNube={emailNube}
           enLinea={enLinea}
+          rachaDias={estadoGamificacion?.rachaDias}
+          insigniasGanadas={estadoGamificacion ? obtenerInsigniasDesbloqueadas(estadoGamificacion) : []}
+          onAbrirAlbum={() => {
+            setShowPadres(false);
+            setShowAlbum(true);
+          }}
+          vozLenta={vozLenta}
+          onToggleVozLenta={toggleVozLenta}
           onNube={() => {
             setShowPadres(false);
             setShowAuth(true);
@@ -1104,13 +1146,27 @@ function App() {
       {finCurso && (
         <div className="padres-overlay" role="dialog" aria-modal="true" aria-label="Curso completado">
           <div className="padres-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
-            <div style={{ fontSize: '4rem' }} aria-hidden="true">🎓🎉</div>
-            <h2>¡Curso completado, {profile.nombre}!</h2>
-            <p style={{ color: '#5b3a80', fontWeight: '700' }}>
-              Terminaste todo el recorrido de lectura con ⭐ {score} puntos.
-              Léo está muy orgulloso de ti.
-            </p>
+            <div id="diploma" style={{ padding: '1rem 0.4rem' }}>
+              <div style={{ fontSize: '3.4rem' }} aria-hidden="true">🎓🎉</div>
+              <h2 style={{ margin: '0.4rem 0 0.2rem', color: '#764ba2' }}>Diploma de lectora/or</h2>
+              <p style={{ fontSize: '1.5rem', fontWeight: 900, color: '#3e2d66', margin: '0.4rem 0' }}>
+                {profile.nombre} {profile.avatar}
+              </p>
+              <p style={{ color: '#5b3a80', fontWeight: 700, margin: '0.3rem 0' }}>
+                Terminó el curso de lectura de LeeConAmor con ⭐ {score} puntos.
+              </p>
+              <p style={{ color: '#6b6880', fontSize: '0.95rem', margin: '0.2rem 0 0' }}>
+                Con la voz suave de Léo y mucho amor 💛 · {new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
             <div className="game-actions" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                className="next-btn"
+                onClick={() => window.print()}
+                style={{ minWidth: '170px' }}
+              >
+                🖨️ Imprimir diploma
+              </button>
               <button
                 className="next-btn"
                 onClick={() => {

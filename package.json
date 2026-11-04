@@ -17,6 +17,7 @@
     "test:trazo": "node server/test-trazo.cjs",
     "test:voz": "node server/test-voz.cjs",
     "test:unit": "vitest run",
+    "test:e2e": "playwright test",
     "test": "node server/test-trazo.cjs && node server/test-voz.cjs && vitest run",
     "verify": "tsc --noEmit && vite build",
     "preview": "vite preview"
@@ -30,6 +31,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/canvas-confetti": "^1.9.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

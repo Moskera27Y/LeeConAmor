@@ -1,9 +1,10 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import VoicePicker from './VoicePicker';
 import MapaDominio from './MapaDominio';
 import { useFocoAtrapado } from '../hooks/useFocoAtrapado';
 import type { EstadoMotor } from '../data/motorNiveles';
 import { dominio } from '../data/motorNiveles';
+import { saludNube, SUPABASE_ACTIVO } from '../lib/supabase';
 
 interface Props {
   nombre: string;
@@ -31,6 +32,11 @@ interface Props {
   leccionNum?: number;
   totalLecciones?: number;
   pctCurso?: number;
+  rachaDias?: number;
+  insigniasGanadas?: { id: string; emoji: string; nombre: string }[];
+  onAbrirAlbum?: () => void;
+  vozLenta?: boolean;
+  onToggleVozLenta?: () => void;
 }
 
 // Zona solo para papá/mamá: primero una suma fácil que el peque no resuelve.
@@ -39,8 +45,29 @@ export default function ZonaPadres(p: Props) {
   const [b] = useState(() => 3 + Math.floor(Math.random() * 4));
   const [resp, setResp] = useState('');
   const [abierto, setAbierto] = useState(false);
-  const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>('resumen');
+  const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline' | 'estado'>('resumen');
   const refContenedor = useFocoAtrapado(true, p.onClose);
+  // Semáforo de servicios (vista "Estado"): se comprueba al abrir la vista.
+  const [estadoNube, setEstadoNube] = useState<'probando' | 'ok' | 'caido'>(SUPABASE_ACTIVO ? 'probando' : 'caido');
+  const [estadoClon, setEstadoClon] = useState<'probando' | 'ok' | 'caido'>('probando');
+
+  useEffect(() => {
+    if (vista !== 'estado') return;
+    let vivo = true;
+    setEstadoNube(SUPABASE_ACTIVO ? 'probando' : 'caido');
+    setEstadoClon('probando');
+    void saludNube().then((ok) => { if (vivo) setEstadoNube(ok ? 'ok' : 'caido'); });
+    const t = window.setTimeout(() => {
+      fetch('/api/voz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: 'Hola', voz: 'Callirrhoe' }),
+      })
+        .then((r) => { if (vivo) setEstadoClon(r.ok ? 'ok' : 'caido'); })
+        .catch(() => { if (vivo) setEstadoClon('caido'); });
+    }, 100);
+    return () => { vivo = false; window.clearTimeout(t); };
+  }, [vista]);
 
   if (!abierto) {
     return (
@@ -125,6 +152,12 @@ export default function ZonaPadres(p: Props) {
           >
             🖨️ Offline
           </button>
+          <button
+            className={`icon-btn ${vista === 'estado' ? 'active-tab' : ''}`}
+            onClick={() => setVista('estado')}
+          >
+            🚦 Estado
+          </button>
         </div>
 
         {vista === 'resumen' && (
@@ -156,6 +189,18 @@ export default function ZonaPadres(p: Props) {
                 <span>Puntuación:</span>
                 <strong>⭐ {p.score ?? 0}</strong>
               </div>
+              {typeof p.rachaDias === 'number' && p.rachaDias > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Racha de días jugando:</span>
+                  <strong>🔥 {p.rachaDias} {p.rachaDias === 1 ? 'día' : 'días'}</strong>
+                </div>
+              )}
+              {typeof p.rachaDias === 'number' && p.rachaDias === 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span>Racha de días jugando:</span>
+                  <strong>aún sin racha</strong>
+                </div>
+              )}
               {p.progreso && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span>Juego libre:</span>
@@ -177,6 +222,24 @@ export default function ZonaPadres(p: Props) {
             )}
             {letrasDificiles.length === 0 && (
               <p style={{ color: '#6b6880', fontSize: '0.9rem' }}>Aún no hay fallos registrados. Sigue practicando para ver el mapa de dominio.</p>
+            )}
+            {p.insigniasGanadas && (
+              <div style={{ marginTop: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <h4 style={{ margin: 0, color: '#764ba2', fontSize: '1rem' }}>🏆 Insignias:</h4>
+                  {p.insigniasGanadas.map((i) => (
+                    <span key={i.id} title={i.nombre} style={{ fontSize: '1.4rem' }}>{i.emoji}</span>
+                  ))}
+                  {p.insigniasGanadas.length === 0 && (
+                    <span style={{ color: '#6b6880', fontSize: '0.9rem' }}>todavía ninguna</span>
+                  )}
+                  {p.onAbrirAlbum && (
+                    <button className="ghost-btn" onClick={p.onAbrirAlbum} style={{ minHeight: '38px', marginLeft: 'auto' }}>
+                      🏅 Ver álbum
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
             {p.graduado && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#186a3b', fontWeight: '700' }}>
@@ -214,6 +277,35 @@ export default function ZonaPadres(p: Props) {
           </div>
         )}
 
+        {vista === 'estado' && (
+          <div className="padres-estado">
+            <h3 style={{ margin: '0 0 0.8rem', color: '#764ba2', fontSize: '1.1rem' }}>Semáforo de servicios</h3>
+            {[
+              { nombre: 'Internet en este aparato', estado: p.enLinea ? 'ok' : 'caido' },
+              { nombre: 'Nube de Supabase (cuentas y sync)', estado: estadoNube },
+              { nombre: 'Cuenta iniciada', estado: p.emailNube ? 'ok' : 'caido' },
+              { nombre: 'Voz clonada de Léo', estado: estadoClon },
+            ].map(({ nombre, estado }) => (
+              <div
+                key={nombre}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.55rem 0.8rem', borderRadius: '12px', marginBottom: '0.5rem',
+                  background: estado === 'ok' ? 'rgba(40,167,69,0.12)' : estado === 'caido' ? 'rgba(255,107,107,0.12)' : '#f7f4fd',
+                }}
+              >
+                <span style={{ fontWeight: 700, color: '#4a3b66' }}>{nombre}</span>
+                <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>
+                  {estado === 'ok' ? '🟢 Funciona' : estado === 'caido' ? '🔴 Sin servicio' : '🟡 Probando…'}
+                </span>
+              </div>
+            ))}
+            <p style={{ color: '#6b6880', fontSize: '0.85rem', marginTop: '0.6rem' }}>
+              La voz clonada se prueba con una frase corta y puede tardar unos segundos. El juego funciona siempre, incluso con la nube en rojo (modo local).
+            </p>
+          </div>
+        )}
+
         <VoicePicker onProbar={p.onProbarVoz} />
         <MapaDominio motor={p.motor} />
         <div className="padres-row">
@@ -226,6 +318,11 @@ export default function ZonaPadres(p: Props) {
         <div className="padres-row">
           <button className="icon-btn" onClick={p.onToggleMute}>{p.muted ? '🔇 Activar voz' : '🔈 Silenciar voz'}</button>
           <button className="icon-btn" onClick={p.onCallar}>🤫 Callar a Léo</button>
+          {p.onToggleVozLenta && (
+            <button className="icon-btn" onClick={p.onToggleVozLenta}>
+              {p.vozLenta ? '🐇 Voz normal' : '🐢 Voz despacio'}
+            </button>
+          )}
         </div>
         {p.motivoTexto && (
           <div className="voice-warning">

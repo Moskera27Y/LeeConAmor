@@ -299,6 +299,8 @@ export function useReadingLesson(objetivo: string) {
   const [escuchandoVoz, setEscuchandoVoz] = useState(false);
   const [motivo, setMotivo] = useState<MotivoLectura | null>(null);
   const [distancia, setDistancia] = useState<number | null>(null);
+  // Última grabación del peque (URL de objeto) para que se oiga a sí mismo.
+  const [miVoz, setMiVoz] = useState<string | null>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const reconocimientoRef = useRef<any>(null);
@@ -448,6 +450,12 @@ export function useReadingLesson(objetivo: string) {
       setGrabando(false);
       if (canceladoRef.current) return VEREDICTO_CANCELADO;
 
+      // Guarda la grabación para el botón "Óyete": si había otra, se libera.
+      setMiVoz((vieja) => {
+        if (vieja) { try { URL.revokeObjectURL(vieja); } catch { /* noop */ } }
+        return grabacion.blob.size > 0 ? URL.createObjectURL(grabacion.blob) : null;
+      });
+
       // La transcripción en nube y el reconocimiento nativo corren en paralelo
       // y gana el primer texto útil. Cuando el nativo sirve (lo normal), la
       // subida se cancela para no gastar cuota del proveedor.
@@ -501,6 +509,10 @@ export function useReadingLesson(objetivo: string) {
       reconocimientoRef.current = null;
       cortarPista(streamRef.current);
       streamRef.current = null;
+      setMiVoz((vieja) => {
+        if (vieja) { try { URL.revokeObjectURL(vieja); } catch { /* noop */ } }
+        return null;
+      });
     };
   }, []);
 
@@ -516,6 +528,7 @@ export function useReadingLesson(objetivo: string) {
     grabarYEvaluar,
     reset,
     detenerGrabacion,
+    miVoz,
     hayAnalizador: hayAnalizador(),
     hayReconocimientoNativo: reconocimientoNativoDisponible(),
   };

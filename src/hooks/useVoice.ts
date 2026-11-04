@@ -29,7 +29,7 @@ function pickSpanishVoice(): SpeechSynthesisVoice | null {
   }
 }
 
-function speakNativo(texto: string, onStart: () => void, onEnd: () => void) {
+function speakNativo(texto: string, onStart: () => void, onEnd: () => void, rate = 0.85) {
   if (!esNavegador()) {
     onEnd();
     return;
@@ -38,7 +38,7 @@ function speakNativo(texto: string, onStart: () => void, onEnd: () => void) {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(texto);
     u.lang = 'es-ES';
-    u.rate = 0.85;
+    u.rate = rate;
     u.pitch = 1.15;
     u.volume = 1.0;
     const v = pickSpanishVoice();
@@ -98,6 +98,15 @@ export function useVoice(enabled: boolean) {
   const [motivo, setMotivo] = useState<MotivoVoz>(null);
   const [necesitaToque, setNecesitaToque] = useState(false);
   const [vozNombre, setVozNombreState] = useState(getVoz());
+  // Voz despacio (para primeros lectores): baja la velocidad del clon y de
+  // la voz nativa. Se guarda por dispositivo.
+  const [vozLenta, setVozLenta] = useState(() => {
+    try {
+      return localStorage.getItem('lee_voz_lenta') === '1';
+    } catch {
+      return false;
+    }
+  });
   const [muted, setMuted] = useState(() => {
     try {
       return localStorage.getItem('lee_muted') === '1';
@@ -177,10 +186,10 @@ export function useVoice(enabled: boolean) {
       };
       setFuente('nativa');
       setIsSpeaking(true);
-      speakNativo(texto, () => setIsSpeaking(true), fin);
+      speakNativo(texto, () => setIsSpeaking(true), fin, vozLenta ? 0.68 : 0.85);
       setTimeout(fin, Math.min(18000, Math.max(2200, texto.length * 100)));
     });
-  }, []);
+  }, [vozLenta]);
 
   // Reproduce una URL y resuelve true solo si la frase terminó sonando con el
   // turno vigente. reproducirUrl (fire-and-forget) y hablarSecuencia lo usan.
@@ -192,6 +201,8 @@ export function useVoice(enabled: boolean) {
       setIsSpeaking(true);
       const a = new Audio(url);
       audioRef.current = a;
+      // Voz despacio: reproduce el audio clonado un poco más lento.
+      a.playbackRate = vozLenta ? 0.85 : 1;
       // Contador del indicador de espera: segundos que faltan del clip.
       a.ontimeupdate = () => {
         if (turno !== turnoRef.current) return;
@@ -230,7 +241,7 @@ export function useVoice(enabled: boolean) {
         fin(false);
       });
     });
-  }, [stopTodoBase, soltarVoz]);
+  }, [stopTodoBase, soltarVoz, vozLenta]);
 
   const reproducirUrl = useCallback(
     (url: string, turno: number) => {
@@ -454,5 +465,15 @@ export function useVoice(enabled: boolean) {
     });
   }, [stopTodo]);
 
-  return { speak, hablarSecuencia, repeat, stop: stopTodo, isSpeaking, vozOcupada, restanteSeg: restante, muted, toggleMute, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
+  const toggleVozLenta = useCallback(() => {
+    setVozLenta((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem('lee_voz_lenta', next ? '1' : '0');
+      } catch { /* noop */ }
+      return next;
+    });
+  }, []);
+
+  return { speak, hablarSecuencia, repeat, stop: stopTodo, isSpeaking, vozOcupada, restanteSeg: restante, muted, toggleMute, vozLenta, toggleVozLenta, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
 }
