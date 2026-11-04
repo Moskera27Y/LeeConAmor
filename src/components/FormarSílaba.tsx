@@ -81,7 +81,7 @@ export default function FormarSílaba({
             onClick={() => agregarLetra(l)}
             disabled={resultado !== null || formada.length >= objetivo.length || isSpeaking}
             className="letter-btn"
-            style={{ width: '72px', height: '72px', fontSize: '2rem' }}
+            style={{ width: 'min(72px, 21vw)', height: '72px', fontSize: '2rem' }}
           >
             {l}
           </button>

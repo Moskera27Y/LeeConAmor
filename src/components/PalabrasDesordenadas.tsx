@@ -137,7 +137,7 @@ export default function PalabrasDesordenadas({
                 onClick={() => agregarSilaba(op.silaba)}
                 disabled={!!resultado || formada.length >= actual.palabra.length || isSpeaking}
                 className={`letter-btn ${formada.endsWith(op.silaba) && !resultado ? 'selected' : ''}`}
-                style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
+                style={{ width: 'min(92px, 26vw)', height: '92px', fontSize: '1.8rem' }}
               >
                 {op.silaba}
               </button>

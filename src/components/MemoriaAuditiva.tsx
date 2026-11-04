@@ -132,7 +132,7 @@ export default function MemoriaAuditiva({
         Nivel {nivel}/{NIVEL_MAX} · Recuerda {secuencia.length} sonido{secuencia.length !== 1 ? 's' : ''}
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'min(0.6rem, 1.5vw)', marginBottom: '1rem' }}>
         {SONIDOS.map((s) => (
           <button
             key={s.id}
@@ -140,8 +140,8 @@ export default function MemoriaAuditiva({
             disabled={!!resultado || reproduciendo || turnoUsuario >= secuencia.length || isSpeaking}
             className={`letter-btn ${turnoUsuario > 0 && secuencia[turnoUsuario - 1] === s.id ? 'selected' : ''}`}
             style={{
-              width: '72px',
-              height: '72px',
+              width: 'min(72px, 16vw)',
+              height: 'min(72px, 16vw)',
               fontSize: '2rem',
               display: 'flex',
               flexDirection: 'column',

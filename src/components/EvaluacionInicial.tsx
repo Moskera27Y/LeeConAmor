@@ -145,7 +145,7 @@ export default function EvaluacionInicial({ rango, nombre, avatar, onListo }: { 
                 key={op}
                 onClick={() => responder(op)}
                 className="letter-btn"
-                style={{ width: '88px', height: '88px', fontSize: '2rem' }}
+                style={{ width: 'min(88px, 25vw)', height: '88px', fontSize: '2rem' }}
               >
                 {op}
               </button>

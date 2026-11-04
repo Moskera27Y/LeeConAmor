@@ -71,7 +71,7 @@ export default function EscucharYTocar({
             onClick={() => tocar(op)}
             disabled={resultado !== null || !escuchado || isSpeaking}
             className={`letter-btn ${seleccionada === op ? (resultado === 'correcto' ? 'selected' : '') : ''} ${resultado === 'incorrecto' && seleccionada === op ? 'wrong' : ''}`}
-            style={{ width: '88px', height: '88px', fontSize: '2rem' }}
+            style={{ width: 'min(88px, 25vw)', height: '88px', fontSize: '2rem' }}
           >
             {op}
           </button>

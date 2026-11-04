@@ -675,12 +675,14 @@ function App() {
 
       <main className="app-main">
         <div className="progress-tracker progress-grande">
-          <div className="progress-score">⭐ {score}</div>
-          {!!estadoGamificacion?.rachaDias && (
-            <div className="progress-score" style={{ marginLeft: '0.4rem' }} title="Días seguidos jugando">
-              🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="progress-score">⭐ {score}</div>
+            {!!estadoGamificacion?.rachaDias && (
+              <div className="progress-score" title="Días seguidos jugando">
+                🔥 {estadoGamificacion.rachaDias} {estadoGamificacion.rachaDias === 1 ? 'día' : 'días'}
+              </div>
+            )}
+          </div>
           <h2 className="progress-label">
             {graduado ? '🎓 Curso completado' : `📖 Curso de lectura · Lección ${leccionNum}/${totalLecciones}`}
           </h2>

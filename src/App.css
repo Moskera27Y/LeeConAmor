@@ -1145,3 +1145,20 @@ button { font-family: inherit; }
     background: #fff;
   }
 }
+
+/* -----------------------------------------------------------------------------
+   21. RESPONSIVO FINO - telefonos y tablets (no cambia el escritorio)
+   -------------------------------------------------------------------------- */
+.app { overflow-x: clip; }
+
+@media (max-width: 480px) {
+  .voz-indicador { font-size: .9rem; gap: .45rem; padding: .5rem .9rem; }
+  .voz-contador { min-width: 1.7em; height: 1.7em; font-size: .95rem; }
+  .progress-score { white-space: nowrap; }
+  .game-actions { gap: .5rem; }
+}
+
+@media (max-width: 380px) {
+  .voz-indicador-texto { max-width: 48vw; }
+  .kid-name { font-size: .95rem; }
+}
