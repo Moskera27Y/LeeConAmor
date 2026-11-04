@@ -150,10 +150,15 @@ function recolectarTextos() {
   for (const m of lecTs.matchAll(/tipo:\s*'storytime'[^}]*?textoTTS:\s*'([^']+)'/g)) {
     for (const w of m[1].split(/\s+/)) push(w, PREFIJOS.palabra, 1);
   }
-  // Palabras de los cuentos de la biblioteca (src/data/cuentos.ts)
+  // Cuentos de la biblioteca (src/data/cuentos.ts): trozos de 3 palabras
+  // (MISMO algoritmo que Storytime.tsx) + palabras sueltas para el toque.
   const cuentosTs = leerFuente('data', 'cuentos.ts');
   for (const m of cuentosTs.matchAll(/texto:\s*'([^']+)'/g)) {
-    for (const w of m[1].split(/\s+/)) push(w, PREFIJOS.palabra, 1);
+    const palabras = m[1].split(/\s+/).filter(Boolean);
+    for (let i = 0; i < palabras.length; i += 3) {
+      push(palabras.slice(i, i + 3).join(' '), PREFIJOS.palabra, 1);
+    }
+    for (const w of palabras) push(w, PREFIJOS.palabra, 1);
   }
 
   /* --- Nombres: saludo + feedback (solo varía el nombre) --- */

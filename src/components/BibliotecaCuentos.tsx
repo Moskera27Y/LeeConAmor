@@ -52,10 +52,10 @@ export default function BibliotecaCuentos({
             key={c.id}
             className="listen-btn"
             onClick={() => setElegido(c)}
-            style={{ minHeight: '64px', display: 'flex', alignItems: 'center', gap: '0.8rem', justifyContent: 'flex-start', padding: '0.8rem 1rem' }}
+            style={{ minHeight: '64px', display: 'flex', alignItems: 'center', gap: '0.8rem', justifyContent: 'flex-start', padding: '0.8rem 1rem', whiteSpace: 'normal', textAlign: 'left' }}
           >
-            <span style={{ fontSize: '1.8rem' }}>{c.emoji}</span>
-            <span style={{ textAlign: 'left' }}>
+            <span style={{ fontSize: '1.8rem', flexShrink: 0 }}>{c.emoji}</span>
+            <span style={{ textAlign: 'left', overflowWrap: 'anywhere' }}>
               <strong style={{ fontSize: '1.05rem' }}>{c.titulo}</strong>
               <br />
               <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>{c.texto.split(' ').length} palabras · Léo te lee</span>

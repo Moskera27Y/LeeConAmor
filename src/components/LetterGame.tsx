@@ -192,6 +192,11 @@ export default function LetterGame({
         <div className="level-instruction">
           <p>🎯 Escucha a Léo y toca la letra que dice</p>
           <p className="targets">Ronda {Math.min(ronda + 1, totalRondas)} de {totalRondas}</p>
+          {intentos >= 2 && !completado && (
+            <p style={{ color: '#764ba2', fontWeight: 900, fontSize: '1.05rem', marginTop: '0.3rem' }}>
+              👀 Busca la letra {target}
+            </p>
+          )}
         </div>
 
         {aciertos > 0 && <div className="selected-letters">✅ Aciertos: {aciertos}</div>}

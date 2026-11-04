@@ -61,7 +61,10 @@ EME empieza con EM
 ESCUELA
 El
 El niño juega
+El sapo está
+El sol da
 El sol sale
+El sol sale.
 En
 Escucha a Léo y toca la vocal.
 Escucha los sonidos y recuérdalos.
@@ -115,6 +118,7 @@ GRADO
 H
 HOSPITAL
 Hola
+Hola luna.
 Hola peque. Escucha a Léo y toca la vocal que escuches. Empezamos con A, E y O.
 Hola, soy Léo. Vamos a leer juntitos con amor.
 I
@@ -147,6 +151,8 @@ La letra I suena iii, como en isla
 La letra O suena ooo, como en oso
 La letra U suena uuu, como en uva
 La luna brilla
+La luna da
+La luna mira.
 La palabra LUNA. Lu-na, despacio lu-na.
 La palabra PERA. Pe-ra, despacio pe-ra.
 La sílaba SA. S con A dicen SA.
@@ -166,6 +172,7 @@ MARIPOSA
 MOR
 Mamá
 Mamá me ama
+Mamá me ama.
 Mira
 N
 NA
@@ -369,6 +376,8 @@ X
 Y
 Ya
 Yo
+Yo amo a
+Yo digo: amor.
 Z
 a
 aaa como manzana
@@ -378,14 +387,17 @@ ama.
 amo
 amor.
 aquí.
+aquí. ¡Hola! Dice
 bbb con aaa, BA
 bbb rrr aaa, BRA
 bonita...
 casa
+casa hay una
 ce con aaa, CA
 ce rrr aaa, CRA
 cuento_corto
 da
+da la pera.
 ddd con aaa, DA
 digo:
 día.
@@ -402,22 +414,31 @@ lll con aaa, LA
 lu-na, despacio lu-na
 luna
 luna.
+luna. Mira el
 luz
+luz a la
+luz al día.
 ma-ma, despacio ma-ma
 mamá.
+mamá. En la
 me
 mesa
+mesa hay una
 mesa.
+mesa. En la
 mira.
 mmm con aaa, MA
 muy
 no
+no está solo.
 noche.
+noche. Adiós sol.
 ooo como oso
 ooo con mmm, OM
 pa-pa, despacio pa-pa
 pe-ra, despacio pe-ra
 pera.
+pera. Mamá me
 ppp rrr aaa, PRA
 rata.
 rrr suave con aaa, RA
@@ -426,12 +447,15 @@ sapo
 sol
 sol, sss-ooo-lll
 sol.
+sol. Nadie está
 solo.
+solo. Mira la
 sss con aaa, SA
 sss-ooo-lll
 ttt con aaa, TA
 ttt rrr aaa, TRA
 una
+una rata. Ya
 uuu como uva
 vez
 ¡Armaste sílabas muy bien!

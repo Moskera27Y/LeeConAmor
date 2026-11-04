@@ -1085,6 +1085,10 @@ function App() {
           }}
           vozLenta={vozLenta}
           onToggleVozLenta={toggleVozLenta}
+          onDiploma={() => {
+            setShowPadres(false);
+            setFinCurso(true);
+          }}
           onNube={() => {
             setShowPadres(false);
             setShowAuth(true);

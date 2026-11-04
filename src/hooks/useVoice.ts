@@ -408,14 +408,19 @@ export function useVoice(enabled: boolean) {
   const repeat = useCallback(() => {
     if (!enabled || muted) return;
     setNecesitaToque(false);
-    if (lastAudio.current) {
-      // Turno nuevo: si había otra voz sonando, esta la reemplaza de verdad.
-      const turno = turnoRef.current + 1;
-      turnoRef.current = turno;
+    const texto = lastText.current;
+    if (!texto) return;
+    // Re-resuelve SIEMPRE la última frase pedida. Reproducir lastAudio a
+    // ciegas podía sonar una frase ANTERIOR (p. ej. "Toca la letra N" de la
+    // ronda pasada) cuando el speak de la ronda actual falló o fue cancelado.
+    const turno = turnoRef.current + 1;
+    turnoRef.current = turno;
+    if (lastAudio.current && lastAudio.current.texto === texto) {
+      // Misma frase: replay instantáneo del audio ya resuelto.
       reproducirUrl(lastAudio.current.url, turno);
       return;
     }
-    if (lastText.current) speak(lastText.current);
+    speak(texto);
   }, [enabled, muted, speak, reproducirUrl]);
 
   const cambiarVoz = useCallback(

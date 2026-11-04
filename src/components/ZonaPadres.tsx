@@ -37,6 +37,7 @@ interface Props {
   onAbrirAlbum?: () => void;
   vozLenta?: boolean;
   onToggleVozLenta?: () => void;
+  onDiploma?: () => void;
 }
 
 // Zona solo para papá/mamá: primero una suma fácil que el peque no resuelve.
@@ -244,6 +245,11 @@ export default function ZonaPadres(p: Props) {
             {p.graduado && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(40,167,69,0.2)', borderRadius: '12px', color: '#186a3b', fontWeight: '700' }}>
                 🎓 Ya graduada/o ¡felicidades!
+                {p.onDiploma && (
+                  <button className="next-btn" onClick={p.onDiploma} style={{ marginTop: '0.6rem', minWidth: '180px' }}>
+                    🖨️ Ver e imprimir diploma
+                  </button>
+                )}
               </div>
             )}
           </div>
