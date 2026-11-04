@@ -170,13 +170,24 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Falta audio' });
+  if (!req.file) return res.status(400).json({ error: 'No se recibió el audio.' });
+  const mime = String(req.file.mimetype || '').toLowerCase();
+  const mimeOk = mime.startsWith('audio/') || mime === 'video/webm' || mime === 'application/ogg';
+  if (!mimeOk) return res.status(415).json({ error: 'Formato de audio no soportado.' });
   try {
     const { texto, provider } = await transcribeWithFallback(req.file.path, req.file.mimetype);
     res.json({ texto, provider });
   } catch (e) {
-    const status = e?.status || 500;
-    res.status(status).json({ error: e?.message || 'Error transcribiendo' });
+    // Paridad con api/transcribe.ts: mensajes fijos, sin detalles del proveedor.
+    const status = Number(e?.status) || 500;
+    const mensajes = {
+      400: 'No se recibió el audio.',
+      401: 'La clave del proveedor de transcripción no es válida.',
+      415: 'Formato de audio no soportado.',
+      502: 'El proveedor de transcripción no está disponible ahora.',
+      504: 'La transcripción tardó demasiado. Intenta de nuevo.',
+    };
+    res.status(status).json({ error: mensajes[status] || 'No se pudo transcribir el audio. Usa la lectura guiada.' });
   } finally {
     fs.promises.unlink(req.file.path).catch(() => {});
   }

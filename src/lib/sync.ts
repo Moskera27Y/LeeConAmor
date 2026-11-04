@@ -155,6 +155,9 @@ async function sincronizarInterno(yaBajado = false): Promise<boolean> {
       if (errProg) {
         // Compatibilidad con bases creadas antes de las columnas nuevas:
         // se reintenta el guardado básico en vez de romper toda la nube.
+        // Ojo: en ese modo las insignias y la adaptabilidad no viajan; el
+        // aviso deja rastro para diagnosticar la pérdida en el dispositivo.
+        console.warn('[sync] La tabla progreso no tiene gamificacion/adaptabilidad; se sube el guardado básico.');
         const { error: errLegacy } = await sb.from('progreso').upsert(baseProgreso);
         errProg = errLegacy;
       }

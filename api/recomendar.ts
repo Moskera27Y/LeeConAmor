@@ -125,8 +125,10 @@ async function manejar(req: any, res: any) {
         return;
       }
     }
+    // Tope por rango, igual que hace el cliente al validar (3-5 → máx. 3).
+    const maximoNivel = rango.startsWith('3') ? 3 : 6;
     const nivel = typeof json.nivelRecomendado === 'number' && Number.isFinite(json.nivelRecomendado)
-      ? Math.max(0, Math.min(6, Math.round(json.nivelRecomendado)))
+      ? Math.max(0, Math.min(maximoNivel, Math.round(json.nivelRecomendado)))
       : null;
     const etapa = typeof json.etapaRecomendada === 'string'
       ? json.etapaRecomendada.trim().toLowerCase().slice(0, 40)

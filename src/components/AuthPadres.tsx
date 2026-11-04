@@ -59,8 +59,9 @@ export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }:
         if (error) throw error;
       }
       onListo();
-    } catch (e: any) {
-      setError(e?.message || 'No se pudo entrar. Revisa correo y clave.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setError(msg || 'No se pudo entrar. Revisa correo y clave.');
     } finally {
       setCargando(false);
     }
@@ -77,8 +78,9 @@ export default function AuthPadres({ onListo, onClose, bloqueado, onSinCuenta }:
         options: { redirectTo: window.location.origin },
       });
       if (error) throw error;
-    } catch (e: any) {
-      setError(e?.message || 'Google no respondió. Intenta de nuevo.');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setError(msg || 'Google no respondió. Intenta de nuevo.');
     }
   };
 

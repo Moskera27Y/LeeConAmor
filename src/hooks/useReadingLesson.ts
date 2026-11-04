@@ -207,9 +207,19 @@ function escucharNativo(timeoutMs = 7000): Promise<string | null> {
   });
 }
 
-async function transcribirEnNube(blob: Blob, extension: string): Promise<string | null> {
+async function transcribirEnNube(blob: Blob, extension: string, externa?: AbortSignal): Promise<string | null> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), 20000);
+  // La señal externa permite cancelar la subida cuando el reconocimiento
+  // nativo ya devolvió un texto útil (ahorra cuota del proveedor).
+  const alAbortar = () => ctrl.abort();
+  if (externa) {
+    if (externa.aborted) {
+      window.clearTimeout(timer);
+      return null;
+    }
+    externa.addEventListener('abort', alAbortar, { once: true });
+  }
   try {
     const form = new FormData();
     form.append('audio', blob, `lectura.${extension}`);
@@ -222,6 +232,7 @@ async function transcribirEnNube(blob: Blob, extension: string): Promise<string 
     return null;
   } finally {
     window.clearTimeout(timer);
+    externa?.removeEventListener('abort', alAbortar);
   }
 }
 
@@ -355,10 +366,10 @@ export function useReadingLesson(objetivo: string) {
       setVolumen(0);
       setEscuchandoVoz(false);
       try { mr.stop(); } catch { /* ya detenido */ }
-      const blob = await detenido;
       try { await ctx?.close(); } catch { /* ya cerrado */ }
-      return { blob, extension: formato.extension };
     }
+    const blob = await detenido;
+    return { blob, extension: formato.extension };
   }, []);
 
   const grabarYEvaluar = useCallback(async (): Promise<VeredictoGrabado> => {
@@ -388,13 +399,18 @@ export function useReadingLesson(objetivo: string) {
       setGrabando(false);
       if (canceladoRef.current) return VEREDICTO_CANCELADO;
 
+      // La transcripción en nube y el reconocimiento nativo corren en paralelo
+      // y gana el primer texto útil. Cuando el nativo sirve (lo normal), la
+      // subida se cancela para no gastar cuota del proveedor.
+      const subida = new AbortController();
       const nube = grabacion.blob.size > 1200
-        ? transcribirEnNube(grabacion.blob, grabacion.extension)
+        ? transcribirEnNube(grabacion.blob, grabacion.extension, subida.signal)
         : Promise.resolve(null);
       const nativo = reconocimientoNativoDisponible() ? escucharNativo() : Promise.resolve(null);
 
       setEvaluando(true);
       const texto = await primerTextoUtil([nube, nativo]);
+      subida.abort(); // no-op si la subida ya terminó
       setEvaluando(false);
       if (canceladoRef.current) return VEREDICTO_CANCELADO;
       return convertir(texto);

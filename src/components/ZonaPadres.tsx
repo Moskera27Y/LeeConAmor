@@ -39,7 +39,7 @@ export default function ZonaPadres(p: Props) {
   const [b] = useState(() => 3 + Math.floor(Math.random() * 4));
   const [resp, setResp] = useState('');
   const [abierto, setAbierto] = useState(false);
-  const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>( 'resumen');
+  const [vista, setVista] = useState<'resumen' | 'consejos' | 'offline'>('resumen');
   const refContenedor = useFocoAtrapado(true, p.onClose);
 
   if (!abierto) {

@@ -59,6 +59,28 @@ function clasificarError(msg: string, status: number): Exclude<MotivoVoz, null> 
   return 'apagado';
 }
 
+// Tope de frases del clon guardadas en memoria. Con data-URLs base64 podían
+// acumularse decenas de MB en tablets modestas; ahora se guardan como Blob
+// (object URL) y se revocan al salir de la caché.
+const MAX_AUDIO_CACHE = 24;
+
+function dataUrlABlobUrl(base64: string, mime: string): string {
+  try {
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes], { type: mime }));
+  } catch {
+    return `data:${mime};base64,${base64}`;
+  }
+}
+
+function revocarUrl(url: string | undefined) {
+  if (url && url.startsWith('blob:')) {
+    try { URL.revokeObjectURL(url); } catch { /* noop */ }
+  }
+}
+
 // Voz de Léo = la CLONADA (ver api/voz.ts y public/audio). Orden:
 //   1. audio pregenerado con el clon  -> lo normal, gratis e instantaneo
 //   2. /api/voz -> llama al clon (Space o local)
@@ -118,7 +140,11 @@ export function useVoice(enabled: boolean) {
     };
     load();
     window.speechSynthesis.onvoiceschanged = load;
-    return () => stopTodo();
+    return () => {
+      stopTodo();
+      for (const url of cache.current.values()) revocarUrl(url);
+      cache.current.clear();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -148,35 +174,48 @@ export function useVoice(enabled: boolean) {
     });
   }, []);
 
-  const reproducirUrl = useCallback(
-    (url: string, textoRespaldo: string, turno: number) => {
-      if (turno !== turnoRef.current) return; // una voz más nueva tomó el turno
+  // Reproduce una URL y resuelve true solo si la frase terminó sonando con el
+  // turno vigente. reproducirUrl (fire-and-forget) y hablarSecuencia lo usan.
+  const reproducirYEsperar = useCallback((url: string, turno: number): Promise<boolean> => {
+    return new Promise<boolean>((fin) => {
+      if (turno !== turnoRef.current) return fin(false); // una voz más nueva tomó el turno
       stopTodoBase();
       setIsSpeaking(true);
       const a = new Audio(url);
       audioRef.current = a;
       a.onended = () => {
         if (turno === turnoRef.current) setIsSpeaking(false);
+        fin(turno === turnoRef.current);
       };
       a.onerror = () => {
         // Audio dañado: no sonar robot, avisar y dejar reintentar
-        setIsSpeaking(false);
-        setFuente('ninguna');
-        setMotivo('otro');
+        if (turno === turnoRef.current) {
+          setIsSpeaking(false);
+          setFuente('ninguna');
+          setMotivo('otro');
+        }
+        fin(false);
       };
-      a.play().catch((err: any) => {
+      a.play().catch((err: { name?: string } | null) => {
         // Chrome bloquea audio sin gesto previo del usuario
-        if (err?.name === 'NotAllowedError') {
+        if (err?.name === 'NotAllowedError' && turno === turnoRef.current) {
           setNecesitaToque(true);
           setIsSpeaking(false);
-          return;
+        } else if (turno === turnoRef.current) {
+          setIsSpeaking(false);
+          setFuente('ninguna');
+          setMotivo('otro');
         }
-        setIsSpeaking(false);
-        setFuente('ninguna');
-        setMotivo('otro');
+        fin(false);
       });
+    });
+  }, [stopTodoBase]);
+
+  const reproducirUrl = useCallback(
+    (url: string, turno: number) => {
+      void reproducirYEsperar(url, turno);
     },
-    [stopTodo]
+    [reproducirYEsperar],
   );
 
   // Resuelve un texto a URL de audio reproducible (cachés + fijos + backend).
@@ -198,12 +237,13 @@ export function useVoice(enabled: boolean) {
         return fijo;
       }
       let timeoutId: number | undefined;
+      let expiro = false;
       try {
         const ctrl = new AbortController();
         fetchCtrl.current = ctrl;
         // Si el clon no responde, se cae a la voz nativa en vez de dejar la
         // interfaz esperando hasta el límite del servidor.
-        timeoutId = window.setTimeout(() => ctrl.abort(), 25000);
+        timeoutId = window.setTimeout(() => { expiro = true; ctrl.abort(); }, 25000);
         const r = await fetch('/api/voz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -214,11 +254,17 @@ export function useVoice(enabled: boolean) {
         if (r.ok) {
           const data = await r.json();
           if (data?.audio) {
-            const url = `data:${data.mime || 'audio/wav'};base64,${data.audio}`;
+            const url = dataUrlABlobUrl(data.audio, data.mime || 'audio/wav');
             cache.current.set(cacheKey, url);
-            if (cache.current.size > 60) {
-              const first = cache.current.keys().next().value;
-              if (first) cache.current.delete(first);
+            while (cache.current.size > MAX_AUDIO_CACHE) {
+              const primera = cache.current.keys().next().value;
+              if (!primera) break;
+              const vieja = cache.current.get(primera);
+              cache.current.delete(primera);
+              // Si la última frase sonada era la expulsada, repeat() debe
+              // volver a resolverla en vez de reproducir una URL muerta.
+              if (vieja && lastAudio.current?.url === vieja) lastAudio.current = null;
+              revocarUrl(vieja);
             }
             lastAudio.current = { url, texto: corto, voz };
             return url;
@@ -231,7 +277,12 @@ export function useVoice(enabled: boolean) {
         if (turno === turnoRef.current) setMotivo(clasificarError(msg, r.status));
         return null;
       } catch (err: any) {
-        if (err?.name === 'AbortError') return null; // cancelado por una voz nueva
+        if (err?.name === 'AbortError') {
+          // Abort por cancelación (una voz nueva tomó el turno) o por timeout
+          // del clon. Solo avisamos si la frase sigue vigente.
+          if (expiro && turno === turnoRef.current) setMotivo('apagado');
+          return null;
+        }
         if (turno === turnoRef.current) setMotivo('apagado');
         return null;
       } finally {
@@ -254,15 +305,15 @@ export function useVoice(enabled: boolean) {
       const url = await resolverAudio(corto, voz, turno);
       if (turno !== turnoRef.current) return; // otra voz tomó el turno
       if (!url) {
-        // Ultimo recurso: voz del navegador (solo si el clon no esta disponible)
+        // Ultimo recurso: voz del navegador (solo si el clon no esta disponible).
+        // Se conserva el motivo para que la zona de padres sepa que el clon falló.
         setFuente('nativa');
-        setMotivo(null);
         sonarNativa(corto);
         return;
       }
       setFuente('clon');
       setMotivo(null);
-      reproducirUrl(url, corto, turno);
+      reproducirUrl(url, turno);
     },
     [enabled, muted, reproducirUrl, resolverAudio, sonarNativa]
   );
@@ -282,50 +333,21 @@ export function useVoice(enabled: boolean) {
         const url = await resolverAudio(corto, voz, turno);
         if (turno !== turnoRef.current) return false;
         if (!url) {
-          // Ultimo recurso: voz del navegador (se espera a que termine)
-          setMotivo(null);
+          // Ultimo recurso: voz del navegador (se espera a que termine).
+          // Se conserva el motivo para el aviso de la zona de padres.
           await sonarNativaYEsperar(corto);
           if (turno !== turnoRef.current) return false;
           continue;
         }
         setFuente('clon');
         setMotivo(null);
-        const ok = await new Promise<boolean>((fin) => {
-          if (turno !== turnoRef.current) return fin(false);
-          stopTodoBase();
-          setIsSpeaking(true);
-          const a = new Audio(url);
-          audioRef.current = a;
-          a.onended = () => {
-            if (turno === turnoRef.current) setIsSpeaking(false);
-            fin(turno === turnoRef.current);
-          };
-          a.onerror = () => {
-            if (turno === turnoRef.current) {
-              setIsSpeaking(false);
-              setFuente('ninguna');
-              setMotivo('otro');
-            }
-            fin(false);
-          };
-          a.play().catch((err: any) => {
-            if (err?.name === 'NotAllowedError' && turno === turnoRef.current) {
-              setNecesitaToque(true);
-              setIsSpeaking(false);
-            } else if (turno === turnoRef.current) {
-              setIsSpeaking(false);
-              setFuente('ninguna');
-              setMotivo('otro');
-            }
-            fin(false);
-          });
-        });
+        const ok = await reproducirYEsperar(url, turno);
         if (!ok) return false;
         await new Promise((r) => setTimeout(r, 250)); // respiro entre frases
       }
       return true;
     },
-    [enabled, muted, resolverAudio, stopTodoBase, sonarNativaYEsperar]
+    [enabled, muted, resolverAudio, reproducirYEsperar, sonarNativaYEsperar]
   );
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
@@ -350,7 +372,7 @@ export function useVoice(enabled: boolean) {
       // Turno nuevo: si había otra voz sonando, esta la reemplaza de verdad.
       const turno = turnoRef.current + 1;
       turnoRef.current = turno;
-      reproducirUrl(lastAudio.current.url, lastAudio.current.texto, turno);
+      reproducirUrl(lastAudio.current.url, turno);
       return;
     }
     if (lastText.current) speak(lastText.current);

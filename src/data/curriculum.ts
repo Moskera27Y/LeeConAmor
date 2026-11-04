@@ -2,20 +2,15 @@
 
 import type { EstadoMotor } from './motorNiveles';
 
-export interface Level {
-  id: number;
-  rango: RangeId;
-  tipo: 'vocal' | 'silaba' | 'palabra' | 'oracion';
-  titulo: string;
-  descripcion: string;
-  targetLetters: string[];
-  distractores: string[]; // 3 letras incorrectas para elegir
-  instruction: string;
-  reward?: string;            // frase de felicitación al completar
-  phonetics?: Record<string, string>; // fonética por letra
-  wordsToHighlight?: string[];
-  emoji: string;
-  palabrasEjemplo: string[];
+// Espejo del resultado de la evaluación inicial (ResultadoEval en
+// useEvaluacionInicial.ts) que se guarda junto al perfil para retomar el nivel.
+export interface EvaluacionInicial {
+  rango?: RangeId;
+  puntaje?: number;
+  total?: number;
+  nivelRecomendado?: number;
+  etapaRecomendada?: string;
+  observaciones?: string[];
 }
 
 export interface ChildProfile {
@@ -27,7 +22,7 @@ export interface ChildProfile {
   createdAt: number;
   etapa?: string;
   nivel?: number;
-  evaluacionInicial?: any;
+  evaluacionInicial?: EvaluacionInicial;
   leccionId?: string;
   actividadIdx?: number;
 }

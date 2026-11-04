@@ -49,10 +49,30 @@ function parseMultipart(req: any): Promise<{ audioPath: string; mime: string }> 
     form.parse(req, (err: any, _fields: any, files: any) => {
       if (err) return reject(err);
       const f = files?.audio?.[0] ?? files?.audio ?? files?.file?.[0] ?? files?.file;
-      if (!f?.filepath) return reject(new Error('Falta audio'));
+      if (!f?.filepath) return reject(Object.assign(new Error('Falta audio'), { status: 400 }));
       resolve({ audioPath: f.filepath, mime: String(f.mimetype || 'audio/webm') });
     });
   });
+}
+
+// Formatos que de verdad graba MediaRecorder en los navegadores.
+function mimeSoportado(mime: string): boolean {
+  const m = mime.toLowerCase();
+  return m.startsWith('audio/') || m === 'video/webm' || m === 'application/ogg';
+}
+
+// Mensajes fijos por código: el detalle real del proveedor (rutas, respuestas
+// HTTP internas, cuotas) nunca se reenvía al cliente.
+const MENSAJES_PUBLICOS: Record<number, string> = {
+  400: 'No se recibió el audio.',
+  401: 'La clave del proveedor de transcripción no es válida.',
+  415: 'Formato de audio no soportado.',
+  502: 'El proveedor de transcripción no está disponible ahora.',
+  504: 'La transcripción tardó demasiado. Intenta de nuevo.',
+};
+
+function mensajePublico(status: number): string {
+  return MENSAJES_PUBLICOS[status] || 'No se pudo transcribir el audio. Usa la lectura guiada.';
 }
 
 async function transcribeWhisperApi(audioPath: string, mime: string): Promise<string> {
@@ -127,6 +147,10 @@ export default async function handler(req: any, res: any) {
   try {
     const parsed = await parseMultipart(req);
     audioPath = parsed.audioPath;
+    if (!mimeSoportado(parsed.mime)) {
+      res.status(415).json({ error: mensajePublico(415) });
+      return;
+    }
     const orden = orderedProviders().filter(providerHasKey);
     if (orden.length === 0) {
       res.status(501).json({ error: 'Sin claves en servidor. Usa fallback nativo.' });
@@ -145,9 +169,11 @@ export default async function handler(req: any, res: any) {
         lastErr = e;
       }
     }
-    res.status(lastErr?.status || 500).json({ error: lastErr?.message || 'Error transcribiendo' });
+    const status = Number(lastErr?.status) || 500;
+    res.status(status).json({ error: mensajePublico(status) });
   } catch (e: any) {
-    res.status(e?.status || 500).json({ error: e?.message || 'Error transcribiendo' });
+    const status = Number(e?.status) || 500;
+    res.status(status).json({ error: mensajePublico(status) });
   } finally {
     if (audioPath) fs.promises.unlink(audioPath).catch(() => {});
   }

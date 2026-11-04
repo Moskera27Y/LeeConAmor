@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { READING_CARDS, activarPerfil, esGraduado, limpiarDatosLocales, loadMotor, loadProfile, loadProfiles, loadProgreso, loadScore, marcarGraduado, saveMotor, saveProfile, saveProgreso, saveScore, type ChildProfile } from './data/curriculum';
-import { ETAPAS, ETAPAS_POR_RANGO, asegurarLeccionInicial, esUltimaLeccion, generarNivel, letrasDeObjetivo, numeroLeccionActual, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, progresoCurso, ABECEDARIO, type EstadoMotor } from './data/motorNiveles';
+import { ETAPAS, ETAPAS_POR_RANGO, asegurarLeccionInicial, esUltimaLeccion, generarNivel, letrasDeObjetivo, numeroLeccionActual, obtenerActividadActual, avanzarActividad, retrocerActividad, obtenerTotalLecciones, progresoCurso, ABECEDARIO, type EstadoMotor, type ActividadConLeccion } from './data/motorNiveles';
 import { fraseInsignia, tipoObjetivo, VOCALES_JUEGO, PALABRAS_JUEGO, SILABAS_JUEGO } from './data/frasesVoz';
 import { F_ETAPA_SUPERADA, asegurarVozNombre } from './data/frases';
 import { supabase, SUPABASE_ACTIVO, cerrarSesionNube, emailSesion } from './lib/supabase';
 import { bajarNube, hayPendiente, sincronizarAhora, vigilarConexion } from './lib/sync';
-import { registrarEvento, cargarAdaptabilidad } from './lib/adaptividad';
-import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas, otorgarInsignia, type InsigniaId } from './lib/gamificacion';
+import { registrarEvento, cargarAdaptabilidad, type EstadoAdaptabilidad } from './lib/adaptividad';
+import { cargarGamificacion, actualizarGamificacion, obtenerInsigniasDesbloqueadas, otorgarInsignia, type InsigniaId, type EstadoGamificacion, type Insignia } from './lib/gamificacion';
 import { petardos } from './lib/confetti';
 // Juegos secundarios: se descargan al abrir su pestaña, no en el arranque.
 const EscuchaYElige = lazy(() => import('./components/EscuchaYElige'));
@@ -69,11 +69,11 @@ function App() {
   const [progress, setProgress] = useState({ done: 0, total: 3 });
   const [readingIndex, setReadingIndex] = useState(0);
   const [motor, setMotor] = useState<EstadoMotor>({ etapa: 'vocales', n: 0, pesos: {}, aciertos: {} });
-  const [actividadActual, setActividadActual] = useState<any>(null);
+  const [actividadActual, setActividadActual] = useState<ActividadConLeccion | null>(null);
   // No se puede pasar de actividad hasta ganar la actual.
   const [actividadGanada, setActividadGanada] = useState(false);
-  const [estadoAdaptabilidad, setEstadoAdaptabilidad] = useState<any>(null);
-  const [estadoGamificacion, setEstadoGamificacion] = useState<any>(null);
+  const [estadoAdaptabilidad, setEstadoAdaptabilidad] = useState<EstadoAdaptabilidad | null>(null);
+  const [estadoGamificacion, setEstadoGamificacion] = useState<EstadoGamificacion | null>(null);
   const [graduado, setGraduado] = useState(false);
   const [showExamen, setShowExamen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
@@ -113,9 +113,10 @@ function App() {
     setActividadActual(obtenerActividadActual(nuevo, profile.rango));
   };
 
-  // Fin del recorrido: graduación real (no se reinicia en silencio).
-  const terminarCurso = () => {
-    if (!profile) return;
+  // Gradúa al peque: lo marca, otorga la insignia 'graduado' y devuelve las
+  // insignias nuevas para que quien llama decida qué celebrar y en qué orden.
+  const graduar = (): Insignia[] => {
+    if (!profile) return [];
     marcarGraduado(profile.id);
     setGraduado(true);
     let estado = estadoGamificacion || cargarGamificacion(profile.id);
@@ -126,6 +127,13 @@ function App() {
     estado = extra.siguiente;
     nuevas.push(...extra.nuevasInsignias);
     setEstadoGamificacion(estado);
+    return nuevas;
+  };
+
+  // Fin del recorrido: graduación real (no se reinicia en silencio).
+  const terminarCurso = () => {
+    if (!profile) return;
+    const nuevas = graduar();
     setFinCurso(true);
     setActividadGanada(false);
     speak(F_ETAPA_SUPERADA);
@@ -389,10 +397,11 @@ function App() {
     }
 
     // Si la red o Supabase tardan, no dejamos la app en "despertando" para
-    // siempre: a los 5 s se ofrece entrar o jugar sin cuenta.
+    // siempre: a los 8 s se ofrece entrar o jugar sin cuenta. Antes eran 5 s y
+    // una sesión lenta metía un destello de la pantalla de acceso.
     const rescate = window.setTimeout(() => {
       setAuth((actual) => (actual === 'cargando' ? 'fuera' : actual));
-    }, 5000);
+    }, 8000);
 
     const initAuth = async () => {
       try {
@@ -481,11 +490,10 @@ function App() {
     refrescar();
   };
 
-  // Si hay voz nativa disponible, la app sigue hablando aunque el backend falle,
-// así que solo avisamos cuando de verdad no hay ninguna voz.
-// Solo avisamos cuando de verdad no hay ninguna voz disponible. La voz del
-// navegador es el ultimo recurso, no lo normal.
-const motivoTexto =
+  // Aviso para la zona de padres. La voz nativa es el último recurso: si el
+  // clon falla pero la app sigue hablando, el motivo se conserva para que el
+  // adulto sepa qué voz se escuchó y pueda reintentar la frase clonada.
+  const motivoTexto =
     motivo === 'key' ? 'No se pudo generar esa frase con la voz clonada. Usa la voz del navegador.' :
     motivo === 'cuota' ? 'Esa frase no se pudo clonar ahora. Usa la voz del navegador.' :
     motivo === 'apagado' ? 'No se pudo contactar con la voz clonada. Usa la voz del navegador.' :
@@ -617,6 +625,29 @@ const motivoTexto =
       void petardos({ particleCount: 80, spread: 100, origin: { y: 0.6 } });
     }
   };
+
+  // El juego libre de letras vive en dos pestañas (recorrido guiado y "más
+  // juegos") con la misma configuración; solo cambia la clave de remontaje.
+  const juegoLetras = (clave: string) => (
+    <LetterGame
+      key={clave}
+      levels={levels}
+      nombre={profile.nombre}
+      speak={speak}
+      hablarSecuencia={hablarSecuencia}
+      isSpeaking={isSpeaking}
+      score={score}
+      setScore={setScore}
+      onProgress={(done, total) => {
+        setProgress({ done, total });
+        saveProgreso(profile.id, done, total);
+      }}
+      onRepeat={repeat}
+      onResultado={manejarResultado}
+      onAvanzar={avanzarMotor}
+      tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
+    />
+  );
 
   return (
     <div className="app sky">
@@ -827,26 +858,7 @@ const motivoTexto =
             </p>
           </div>
         )}
-        {tab === 'jugar' && !actividadActual && (
-          <LetterGame
-            key={`${motor.etapa}-${motor.n}`}
-            levels={levels}
-            nombre={profile.nombre}
-            speak={speak}
-            hablarSecuencia={hablarSecuencia}
-            isSpeaking={isSpeaking}
-            score={score}
-            setScore={setScore}
-            onProgress={(done, total) => {
-              setProgress({ done, total });
-              saveProgreso(profile.id, done, total);
-            }}
-            onRepeat={repeat}
-onResultado={manejarResultado}
-            onAvanzar={avanzarMotor}
-            tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-          />
-        )}
+        {tab === 'jugar' && !actividadActual && juegoLetras(`${motor.etapa}-${motor.n}`)}
         {tab === 'leer' && (
           <div className="letter-game">
                 <BotMessage
@@ -916,26 +928,7 @@ onResultado={manejarResultado}
               </button>
             </div>
             <Suspense fallback={<Cargando />}>
-            {masJuego === 'letras' && (
-              <LetterGame
-                key={`libre-${motor.etapa}-${motor.n}`}
-                levels={levels}
-                nombre={profile.nombre}
-                speak={speak}
-                hablarSecuencia={hablarSecuencia}
-                isSpeaking={isSpeaking}
-                score={score}
-                setScore={setScore}
-                onProgress={(done, total) => {
-                  setProgress({ done, total });
-                  saveProgreso(profile.id, done, total);
-                }}
-                onRepeat={repeat}
-onResultado={manejarResultado}
-              onAvanzar={avanzarMotor}
-              tituloNivel={`${etapaInfo.icono} ${etapaInfo.nombre} ${motor.n + 1}`}
-            />
-          )}
+            {masJuego === 'letras' && juegoLetras(`libre-${motor.etapa}-${motor.n}`)}
             {masJuego === 'escucha_elige' && (
               <EscuchaYElige
                 rango={profile.rango}
@@ -1049,17 +1042,9 @@ onResultado={manejarResultado}
             isSpeaking={isSpeaking}
             onAprobar={() => {
               if (!profile) return;
-              marcarGraduado(profile.id);
-              setGraduado(true);
-              const g = actualizarGamificacion(
-                estadoGamificacion || cargarGamificacion(profile.id),
-                { graduado: true },
-                profile.id,
-              );
-              const extra = otorgarInsignia(g.siguiente, 'graduado', profile.id);
-              setEstadoGamificacion(extra.siguiente);
-              if (extra.nuevasInsignias.length > 0) {
-                speak(fraseInsignia(extra.nuevasInsignias[0].nombre));
+              const nuevas = graduar();
+              if (nuevas.length > 0) {
+                speak(fraseInsignia(nuevas[0].nombre));
                 void petardos({ particleCount: 160, spread: 160, origin: { y: 0.45 } });
               }
             }}

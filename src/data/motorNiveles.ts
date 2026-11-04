@@ -77,7 +77,22 @@ function ponderada(letras: string[], pesos: Record<string, number>, k: number, r
   return [...new Set(muestra(bolsa, Math.min(k * 3, bolsa.length), rnd))].slice(0, k);
 }
 
-export function generarNivel(estado: EstadoMotor, rango: RangeId): any {
+// Nivel de juego que genera el motor (lo que consume LetterGame).
+export interface NivelJuego {
+  id: number;
+  emoji: string[];
+  sentences: string[];
+  titulo: string;
+  descripcion: string;
+  targetLetters: string[];
+  distractores: string[];
+  instruction: string;
+  wordsToHighlight: string[];
+  reward?: string;
+  phonetics?: Record<string, string>;
+}
+
+export function generarNivel(estado: EstadoMotor, rango: RangeId): NivelJuego {
   const rnd = mulberry32(estado.n * 2654435761 + estado.etapa.length * 97 + (rango === '6-8' ? 13 : 7));
   const base = { id: estado.n + 1, emoji: ['🦉', '📚', '⭐'], sentences: [] as string[] };
 

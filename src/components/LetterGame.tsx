@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Level } from '../data/curriculum';
+import type { NivelJuego } from '../data/motorNiveles';
 import BotMessage from './BotMessage';
 import { ABECEDARIO } from '../data/motorNiveles';
 import { F_ERROR_CASI, F_NIVEL_OK } from '../data/frases';
@@ -7,7 +7,7 @@ import { fraseToca } from '../data/frasesVoz';
 import { petardos } from '../lib/confetti';
 
 interface Props {
-  levels: Level[];
+  levels: NivelJuego[];
   nombre: string;
   speak: (t: string) => void;
   hablarSecuencia?: (t: string[]) => Promise<boolean>;
@@ -41,7 +41,7 @@ export default function LetterGame({
   score = 0, setScore = (s) => s, onProgress = () => {}, onRepeat = () => {},
   onResultado, onAvanzar, tituloNivel,
 }: Props & { key?: string }) {
-  const config: Level | undefined = levels[0];
+  const config: NivelJuego | undefined = levels[0];
 
   const [targets, setTargets] = useState<string[]>([]);
   const [ronda, setRonda] = useState(0);
