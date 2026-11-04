@@ -133,7 +133,7 @@ export default function EscuchaYElige({
         <button
           className="ghost-btn"
           onClick={repetir}
-          disabled={escuchando}
+          disabled={escuchando || isSpeaking}
           style={{ marginLeft: '0.6rem', minHeight: '48px' }}
         >
           🔁 Repetir
@@ -149,7 +149,7 @@ export default function EscuchaYElige({
             <button
               key={op.id}
               onClick={() => elegir(op)}
-              disabled={!escuchado || escuchando}
+              disabled={!escuchado || escuchando || isSpeaking}
               className={`letter-btn ${estáSeleccionada ? (estáCorrecta ? 'selected' : estáIncorrecta ? 'wrong' : '') : ''}`}
               style={{
                 width: '100%',

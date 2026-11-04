@@ -92,7 +92,7 @@ export default function FormarPalabra({
           <button
             key={s}
             onClick={() => agregarSilaba(s)}
-            disabled={resultado !== null || formada.length >= objetivo.length}
+            disabled={resultado !== null || formada.length >= objetivo.length || isSpeaking}
             className="letter-btn"
             style={{ width: '92px', height: '92px', fontSize: '1.8rem' }}
           >

@@ -88,6 +88,12 @@ function revocarUrl(url: string | undefined) {
 // Nunca se usa una voz sintetica de pago.
 export function useVoice(enabled: boolean) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  // Voz ocupada de punta a punta: true desde que se pide una frase hasta que
+  // terminó de sonar INCLUIDOS los respiros entre frases de una secuencia.
+  // Es la señal que usan los juegos para saber cuándo el peque puede tocar.
+  const [vozOcupada, setVozOcupada] = useState(false);
+  // Segundos que faltan del clip actual (contador del indicador de espera).
+  const [restante, setRestante] = useState(0);
   const [fuente, setFuente] = useState<'clon' | 'nativa' | 'ninguna'>('ninguna');
   const [motivo, setMotivo] = useState<MotivoVoz>(null);
   const [necesitaToque, setNecesitaToque] = useState(false);
@@ -127,6 +133,8 @@ export function useVoice(enabled: boolean) {
 
   const stopTodo = useCallback(() => {
     turnoRef.current += 1;
+    setVozOcupada(false);
+    setRestante(0);
     stopTodoBase();
   }, [stopTodoBase]);
 
@@ -148,15 +156,15 @@ export function useVoice(enabled: boolean) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const sonarNativa = useCallback((texto: string) => {
-    if (!esNavegador()) return;
-    setFuente('nativa');
-    setIsSpeaking(true);
-    speakNativo(texto, () => setIsSpeaking(true), () => setIsSpeaking(false));
+  // Suelta la señal de "voz ocupada" (fin de frase o secuencia).
+  const soltarVoz = useCallback(() => {
+    setVozOcupada(false);
+    setRestante(0);
   }, []);
 
   // Voz nativa esperando su final real (antes se asumían 1500 ms fijos y se
-  // cortaba la app aunque la frase siguiera sonando).
+  // cortaba la app aunque la frase siguiera sonando). El tope es solo red de
+  // seguridad: si onend no llega, no dejar la app esperando para siempre.
   const sonarNativaYEsperar = useCallback((texto: string) => {
     return new Promise<void>((resolve) => {
       if (!esNavegador()) return resolve();
@@ -170,7 +178,7 @@ export function useVoice(enabled: boolean) {
       setFuente('nativa');
       setIsSpeaking(true);
       speakNativo(texto, () => setIsSpeaking(true), fin);
-      setTimeout(fin, Math.min(12000, Math.max(2200, texto.length * 100)));
+      setTimeout(fin, Math.min(18000, Math.max(2200, texto.length * 100)));
     });
   }, []);
 
@@ -180,17 +188,28 @@ export function useVoice(enabled: boolean) {
     return new Promise<boolean>((fin) => {
       if (turno !== turnoRef.current) return fin(false); // una voz más nueva tomó el turno
       stopTodoBase();
+      setVozOcupada(true);
       setIsSpeaking(true);
       const a = new Audio(url);
       audioRef.current = a;
+      // Contador del indicador de espera: segundos que faltan del clip.
+      a.ontimeupdate = () => {
+        if (turno !== turnoRef.current) return;
+        const d = a.duration;
+        if (Number.isFinite(d) && d > 0) setRestante(Math.max(1, Math.ceil(d - a.currentTime)));
+      };
       a.onended = () => {
-        if (turno === turnoRef.current) setIsSpeaking(false);
+        if (turno === turnoRef.current) {
+          setIsSpeaking(false);
+          soltarVoz();
+        }
         fin(turno === turnoRef.current);
       };
       a.onerror = () => {
         // Audio dañado: no sonar robot, avisar y dejar reintentar
         if (turno === turnoRef.current) {
           setIsSpeaking(false);
+          soltarVoz();
           setFuente('ninguna');
           setMotivo('otro');
         }
@@ -201,15 +220,17 @@ export function useVoice(enabled: boolean) {
         if (err?.name === 'NotAllowedError' && turno === turnoRef.current) {
           setNecesitaToque(true);
           setIsSpeaking(false);
+          soltarVoz();
         } else if (turno === turnoRef.current) {
           setIsSpeaking(false);
+          soltarVoz();
           setFuente('ninguna');
           setMotivo('otro');
         }
         fin(false);
       });
     });
-  }, [stopTodoBase]);
+  }, [stopTodoBase, soltarVoz]);
 
   const reproducirUrl = useCallback(
     (url: string, turno: number) => {
@@ -297,6 +318,7 @@ export function useVoice(enabled: boolean) {
       if (!enabled || muted) return;
       const turno = turnoRef.current + 1;
       turnoRef.current = turno;
+      setVozOcupada(true);
       // El clon no pronuncia emojis: se limpian para que la clave coincida
       // con la generada por `npm run voz:clon`.
       const corto = textoHablado(texto).slice(0, 160);
@@ -308,14 +330,15 @@ export function useVoice(enabled: boolean) {
         // Ultimo recurso: voz del navegador (solo si el clon no esta disponible).
         // Se conserva el motivo para que la zona de padres sepa que el clon falló.
         setFuente('nativa');
-        sonarNativa(corto);
+        await sonarNativaYEsperar(corto);
+        if (turno === turnoRef.current) soltarVoz();
         return;
       }
       setFuente('clon');
       setMotivo(null);
-      reproducirUrl(url, turno);
+      reproducirUrl(url, turno); // reproducirYEsperar suelta la voz al terminar
     },
-    [enabled, muted, reproducirUrl, resolverAudio, sonarNativa]
+    [enabled, muted, reproducirUrl, resolverAudio, sonarNativaYEsperar, soltarVoz]
   );
 
   // Habla varios textos en orden, sin traslapes. Si llega un speak() nuevo,
@@ -325,6 +348,7 @@ export function useVoice(enabled: boolean) {
       if (!enabled || muted) return false;
       const turno = turnoRef.current + 1;
       turnoRef.current = turno;
+      setVozOcupada(true);
       const voz = VOZ_UNICA;
       for (const t of textos) {
         if (turno !== turnoRef.current) return false;
@@ -342,12 +366,17 @@ export function useVoice(enabled: boolean) {
         setFuente('clon');
         setMotivo(null);
         const ok = await reproducirYEsperar(url, turno);
-        if (!ok) return false;
+        if (turno !== turnoRef.current) return false;
+        if (!ok) { soltarVoz(); return false; }
+        // Sigue siendo el turno de la voz durante el respiro: así el
+        // indicador de espera no parpadea entre frases.
+        setVozOcupada(true);
         await new Promise((r) => setTimeout(r, 250)); // respiro entre frases
       }
+      soltarVoz();
       return true;
     },
-    [enabled, muted, resolverAudio, reproducirYEsperar, sonarNativaYEsperar]
+    [enabled, muted, resolverAudio, reproducirYEsperar, sonarNativaYEsperar, soltarVoz]
   );
 
   // Primer toque del niño/adulto desbloquea el audio del navegador
@@ -405,8 +434,14 @@ export function useVoice(enabled: boolean) {
   const usarVozBasica = useCallback(() => {
     setMotivo(null);
     setNecesitaToque(false);
-    if (lastText.current) sonarNativa(lastText.current);
-  }, [sonarNativa]);
+    if (!lastText.current) return;
+    const turno = turnoRef.current + 1;
+    turnoRef.current = turno;
+    setVozOcupada(true);
+    void sonarNativaYEsperar(lastText.current).then(() => {
+      if (turno === turnoRef.current) soltarVoz();
+    });
+  }, [sonarNativaYEsperar, soltarVoz]);
 
   const toggleMute = useCallback(() => {
     setMuted((m) => {
@@ -419,5 +454,5 @@ export function useVoice(enabled: boolean) {
     });
   }, [stopTodo]);
 
-  return { speak, hablarSecuencia, repeat, stop: stopTodo, isSpeaking, muted, toggleMute, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
+  return { speak, hablarSecuencia, repeat, stop: stopTodo, isSpeaking, vozOcupada, restanteSeg: restante, muted, toggleMute, voiceReady, fuente, motivo, necesitaToque, vozNombre, cambiarVoz, probarVoz, reintentarVoz, usarVozBasica };
 }

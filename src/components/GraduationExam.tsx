@@ -124,6 +124,7 @@ export default function GraduationExam({ speak, isSpeaking, onAprobar, onClose }
               key={l}
               className={`letter-btn ${elegida === l ? (l === preguntas[idx].valor ? 'selected' : 'wrong') : ''}`}
               onClick={() => elegir(l)}
+              disabled={isSpeaking || !!elegida}
             >
               {l}
             </button>

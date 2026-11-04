@@ -1,7 +1,8 @@
 ﻿import { useState, useCallback, useMemo, type PointerEvent as ReactPointerEvent } from 'react';
 import { LETRAS_TRACO, MENSAJES_TRAZO, muestrearTrazo, validarTrazo, type LetraTrazo } from '../lib/trazo';
 import { FRASES_VOZ } from '../data/frasesVoz';
-import { F_BIEN_LECTURA } from '../data/frases';
+import { F_TRAZO_OK } from '../data/frases';
+import { petardos } from '../lib/confetti';
 
 interface Props {
   speak: (t: string) => void;
@@ -10,6 +11,10 @@ interface Props {
   onError: () => void;
   isSpeaking: boolean;
 }
+
+// Felicitaciones de trazo. Todas ya están pregeneradas con la voz clonada
+// (FRASES_FIJAS), así que siempre suena Léo y nunca la voz del navegador.
+const FELICITACIONES_TRAZO = [F_TRAZO_OK, '¡Muy bien!', '¡Genial!', '¡Hermoso!', '¡Súper!'];
 
 type Punto = { x: number; y: number };
 
@@ -81,7 +86,8 @@ export default function TrazoLetra({
     if (r.ok) {
       setCompletado(true);
       setAviso('');
-      speak(F_BIEN_LECTURA);
+      speak(FELICITACIONES_TRAZO[Math.floor(Math.random() * FELICITACIONES_TRAZO.length)]);
+      petardos({ particleCount: 80, spread: 110, origin: { y: 0.6 }, colors: ['#7ed957', '#7b6cf0', '#ffd166', '#ff8fab'] });
       onCorrecto();
       return;
     }
@@ -190,10 +196,22 @@ export default function TrazoLetra({
               <div
                 style={{
                   position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
-                  fontSize: '3rem', pointerEvents: 'none',
+                  pointerEvents: 'none',
                 }}
               >
-                ✅
+                <div
+                  className="trazo-fiesta"
+                  style={{
+                    display: 'grid', placeItems: 'center', gap: '.2rem',
+                    background: 'rgba(255,255,255,0.92)', borderRadius: '18px',
+                    padding: '.7rem 1.4rem', boxShadow: '0 6px 24px rgba(118,75,162,0.25)',
+                    border: '3px solid #7ed957',
+                  }}
+                >
+                  <span style={{ fontSize: '2.4rem', lineHeight: 1 }}>✨</span>
+                  <span style={{ fontSize: '2rem', fontWeight: 900, color: '#764ba2', lineHeight: 1 }}>{actual.letra}</span>
+                  <span style={{ fontSize: '.95rem', fontWeight: 800, color: '#3e8e4f' }}>¡Letra preciosa!</span>
+                </div>
               </div>
             )}
           </div>

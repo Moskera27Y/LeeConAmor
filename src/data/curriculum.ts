@@ -41,12 +41,31 @@ export const READING_CARDS: Record<RangeId, { objetivo: string; imagen: string; 
     { objetivo: 'O', imagen: '⚽', pista: 'ooo como oso' },
     { objetivo: 'U', imagen: '🍇', pista: 'uuu como uva' },
   ],
+  // Bancas amplias: todas las palabras sueltas YA tienen audio clonado
+  // (cobertura de AUDIO_FIJO), así que "escucha el ejemplo" siempre suena
+  // con la voz de Léo. De 6-8 se incluyen también sílabas trabadas (PRADO,
+  // BRAZO) para practicar lo del recorrido.
   '6-8': [
     { objetivo: 'MAMA', imagen: '🤱', pista: 'ma-ma, despacio ma-ma' },
     { objetivo: 'PAPA', imagen: '👨', pista: 'pa-pa, despacio pa-pa' },
     { objetivo: 'PERA', imagen: '🍐', pista: 'pe-ra, despacio pe-ra' },
     { objetivo: 'SOL', imagen: '☀️', pista: 'sol, sss-ooo-lll' },
     { objetivo: 'LUNA', imagen: '🌙', pista: 'lu-na, despacio lu-na' },
+    { objetivo: 'AMOR', imagen: '💛', pista: 'a-mor, despacio a-mor' },
+    { objetivo: 'CASA', imagen: '🏠', pista: 'ca-sa, despacio ca-sa' },
+    { objetivo: 'SAPO', imagen: '🐸', pista: 'sa-po, despacio sa-po' },
+    { objetivo: 'SOPA', imagen: '🍲', pista: 'so-pa, sss-ooo-pa' },
+    { objetivo: 'BEBE', imagen: '👶', pista: 'be-be, despacio be-be' },
+    { objetivo: 'DADO', imagen: '🎲', pista: 'da-do, despacio da-do' },
+    { objetivo: 'RATA', imagen: '🐭', pista: 'ra-ta, despacio ra-ta' },
+    { objetivo: 'FARO', imagen: '🗼', pista: 'fa-ro, despacio fa-ro' },
+    { objetivo: 'TARDE', imagen: '🌇', pista: 'tar-de, despacio tar-de' },
+    { objetivo: 'SOLAR', imagen: '🏡', pista: 'so-lar, despacio so-lar' },
+    { objetivo: 'OMAR', imagen: '👦', pista: 'o-mar, despacio o-mar' },
+    { objetivo: 'EME', imagen: 'Ⓜ️', pista: 'eme es la M de mamá' },
+    { objetivo: 'IMÁN', imagen: '🧲', pista: 'i-mán, despacio i-mán' },
+    { objetivo: 'PRADO', imagen: '🌳', pista: 'pra-do, con pr despacito' },
+    { objetivo: 'BRAZO', imagen: '💪', pista: 'bra-zo, con br despacito' },
   ],
 };
 

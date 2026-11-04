@@ -57,7 +57,7 @@ export default function LeerConElDedo({
           <button
             key={`${pieza}-${idx}`}
             onClick={() => tocarPieza(idx)}
-            disabled={tocadas.has(idx) || resultado === 'correcto'}
+            disabled={tocadas.has(idx) || resultado === 'correcto' || isSpeaking}
             className={`letter-btn ${tocadas.has(idx) ? 'selected' : ''}`}
             style={{
               width: esOracion ? 'auto' : '72px',

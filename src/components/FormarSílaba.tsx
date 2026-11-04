@@ -79,7 +79,7 @@ export default function FormarSílaba({
           <button
             key={l}
             onClick={() => agregarLetra(l)}
-            disabled={resultado !== null || formada.length >= objetivo.length}
+            disabled={resultado !== null || formada.length >= objetivo.length || isSpeaking}
             className="letter-btn"
             style={{ width: '72px', height: '72px', fontSize: '2rem' }}
           >

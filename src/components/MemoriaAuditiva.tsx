@@ -137,7 +137,7 @@ export default function MemoriaAuditiva({
           <button
             key={s.id}
             onClick={() => elegirSonido(s.id)}
-            disabled={!!resultado || reproduciendo || turnoUsuario >= secuencia.length}
+            disabled={!!resultado || reproduciendo || turnoUsuario >= secuencia.length || isSpeaking}
             className={`letter-btn ${turnoUsuario > 0 && secuencia[turnoUsuario - 1] === s.id ? 'selected' : ''}`}
             style={{
               width: '72px',

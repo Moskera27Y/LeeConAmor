@@ -18,11 +18,44 @@ const MULETILLAS = new Set([
   'este', 'esto', 'bueno', 'pues', 'ok', 'okay', 'oc', 'aja', 'verdad', 'digamos',
 ]);
 
-const MS_SILENCIO_FIN = 1100;
-const MS_MAX_GRABACION = 10000;
-const MS_GRABACION_SIN_ANALIZADOR = 6000;
+// Más paciente con los peques: pausan entre sílabas y palabras largas.
+const MS_SILENCIO_FIN = 1500;
+const MS_MAX_GRABACION = 14000;
+const MS_GRABACION_SIN_ANALIZADOR = 9000;
 const MS_CALIBRACION_RUIDO = 350;
 const UMBRAL_RUIDO_MINIMO = 0.012;
+
+// Cómo escribe el reconocimiento de voz los NOMBRES de las letras. Sin esto,
+// un peque que dice "hache" o "uve doble" nunca valía como acierto.
+const NOMBRES_LETRA: Record<string, string[]> = {
+  A: ['a', 'ah', 'ha'],
+  B: ['b', 'be', 've'],
+  C: ['c', 'ce', 'se'],
+  D: ['d', 'de'],
+  E: ['e'],
+  F: ['f', 'efe'],
+  G: ['g', 'ge'],
+  H: ['h', 'hache', 'ache'],
+  I: ['i', 'hi'],
+  J: ['j', 'jota', 'hota'],
+  K: ['k', 'ka', 'ca'],
+  L: ['l', 'ele'],
+  M: ['m', 'eme'],
+  N: ['n', 'ene'],
+  Ñ: ['ñ', 'eñe'],
+  O: ['o'],
+  P: ['p', 'pe'],
+  Q: ['q', 'cu', 'qu'],
+  R: ['r', 'erre'],
+  S: ['s', 'ese'],
+  T: ['t', 'te'],
+  U: ['u'],
+  V: ['v', 'uve', 've'],
+  W: ['w', 'doble u', 'doble ve', 'uve doble', 'doble uve'],
+  X: ['x', 'equis'],
+  Y: ['y', 'ye', 'i griega', 'igriega'],
+  Z: ['z', 'zeta', 'seta'],
+};
 
 export const VEREDICTO_CANCELADO: VeredictoGrabado = {
   bien: false,
@@ -77,12 +110,25 @@ export function evaluarLectura(objetivo: string, oido: string): ResultadoLectura
   const dichas = palabras(limpio);
 
   if (esperado.length === 1) {
-    const acerto = dichas.includes(esperado);
+    // Letra: acepta el nombre que use el pequeño ("uve", "hache"...) y el
+    // sonido suelto ("a"). B y V suenan igual en español: se aceptan ambas.
+    const validas = new Set(NOMBRES_LETRA[esperado] || [esperado]);
+    const acerto = dichas.some((d) => validas.has(d));
     return { bien: acerto, motivo: acerto ? 'acierto' : 'distinto', distancia: acerto ? 0 : 1 };
   }
 
-  const distancia = Math.min(...[...dichas, limpio].map((c) => levenshtein(c, esperado)));
-  const bien = limpio.includes(esperado) || distancia <= 1;
+  // Los peques leen sílaba a sílaba ("ma ma") y el reconocedor a veces mete
+  // o quita espacios: también se compara la frase sin espacios, pero solo si
+  // el largo se parece (evita contar "mamá está aquí" como "mama").
+  const sinEspacios = limpio.replace(/\s+/g, '');
+  const esperadoJunto = esperado.replace(/\s+/g, '');
+  const cercano = Math.abs(sinEspacios.length - esperadoJunto.length) <= 3;
+
+  const distancia = Math.min(...[...dichas, limpio, ...(cercano ? [sinEspacios] : [])]
+    .map((c) => levenshtein(c, esperado)));
+  const bien = limpio.includes(esperado)
+    || (cercano && sinEspacios.includes(esperadoJunto))
+    || distancia <= 1;
   return { bien, motivo: bien ? 'acierto' : 'distinto', distancia };
 }
 
@@ -207,7 +253,7 @@ function escucharNativo(timeoutMs = 7000): Promise<string | null> {
   });
 }
 
-async function transcribirEnNube(blob: Blob, extension: string, externa?: AbortSignal): Promise<string | null> {
+async function transcribirEnNube(blob: Blob, extension: string, externa?: AbortSignal, esperado?: string): Promise<string | null> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), 20000);
   // La señal externa permite cancelar la subida cuando el reconocimiento
@@ -223,6 +269,9 @@ async function transcribirEnNube(blob: Blob, extension: string, externa?: AbortS
   try {
     const form = new FormData();
     form.append('audio', blob, `lectura.${extension}`);
+    // Pista para el transcriptor: sesga la decodificación hacia la palabra
+    // que se espera leer (ayuda muchísimo con la voz de un peque).
+    if (esperado) form.append('esperado', esperado);
     const r = await fetch('/api/transcribe', { method: 'POST', body: form, signal: ctrl.signal });
     if (!r.ok) return null;
     const data = await r.json();
@@ -404,7 +453,7 @@ export function useReadingLesson(objetivo: string) {
       // subida se cancela para no gastar cuota del proveedor.
       const subida = new AbortController();
       const nube = grabacion.blob.size > 1200
-        ? transcribirEnNube(grabacion.blob, grabacion.extension, subida.signal)
+        ? transcribirEnNube(grabacion.blob, grabacion.extension, subida.signal, objetivo)
         : Promise.resolve(null);
       const nativo = reconocimientoNativoDisponible() ? escucharNativo() : Promise.resolve(null);
 
@@ -425,7 +474,7 @@ export function useReadingLesson(objetivo: string) {
       cortarPista(stream);
       streamRef.current = null;
     }
-  }, [convertir, grabarConVAD]);
+  }, [convertir, grabarConVAD, objetivo]);
 
   const reset = useCallback(() => {
     canceladoRef.current = true;

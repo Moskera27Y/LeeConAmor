@@ -87,12 +87,14 @@ app.post('/api/voz', async (req, res) => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function transcribeWhisperApi(filePath, mime) {
+async function transcribeWhisperApi(filePath, mime, esperado) {
   const apiKey = process.env.WHISPER_API_KEY;
   if (!apiKey) throw Object.assign(new Error('Falta WHISPER_API_KEY'), { status: 501 });
   const buf = await fs.promises.readFile(filePath);
   const form = new FormData();
   form.append('file', new Blob([buf], { type: mime || 'audio/webm' }), 'lectura.webm');
+  // Igual que api/transcribe.ts: sesgo hacia la palabra esperada.
+  if (esperado) form.append('prompt', esperado);
   const start = await fetch('https://api.whisper-api.com/transcribe', {
     method: 'POST',
     headers: { 'X-API-Key': apiKey },
@@ -116,7 +118,7 @@ async function transcribeWhisperApi(filePath, mime) {
   throw Object.assign(new Error('Timeout esperando transcripcion'), { status: 504 });
 }
 
-async function transcribeOpenAI(filePath) {
+async function transcribeOpenAI(filePath, esperado) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw Object.assign(new Error('Falta OPENAI_API_KEY'), { status: 501 });
   const { OpenAI } = require('openai');
@@ -125,6 +127,8 @@ async function transcribeOpenAI(filePath) {
     file: fs.createReadStream(filePath),
     model: 'whisper-1',
     language: 'es',
+    ...(esperado ? { prompt: esperado } : {}),
+    temperature: 0,
   });
   return String(tr?.text || '').trim();
 }
@@ -142,13 +146,13 @@ function providerHasKey(p) {
   return Boolean(process.env.OPENAI_API_KEY);
 }
 
-async function transcribeWithFallback(filePath, mime) {
+async function transcribeWithFallback(filePath, mime, esperado) {
   const orden = orderedProviders().filter(providerHasKey);
   if (orden.length === 0) throw Object.assign(new Error('Sin claves en servidor. Usa fallback nativo.'), { status: 501 });
   let lastErr = null;
   for (const p of orden) {
     try {
-      const texto = p === 'openai' ? await transcribeOpenAI(filePath) : await transcribeWhisperApi(filePath, mime);
+      const texto = p === 'openai' ? await transcribeOpenAI(filePath, esperado) : await transcribeWhisperApi(filePath, mime, esperado);
       if (texto) return { texto, provider: p };
       lastErr = Object.assign(new Error('Sin texto'), { status: 502 });
     } catch (e) {
@@ -174,8 +178,9 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   const mime = String(req.file.mimetype || '').toLowerCase();
   const mimeOk = mime.startsWith('audio/') || mime === 'video/webm' || mime === 'application/ogg';
   if (!mimeOk) return res.status(415).json({ error: 'Formato de audio no soportado.' });
+  const esperado = String(req.body?.esperado || '').trim().slice(0, 80);
   try {
-    const { texto, provider } = await transcribeWithFallback(req.file.path, req.file.mimetype);
+    const { texto, provider } = await transcribeWithFallback(req.file.path, req.file.mimetype, esperado);
     res.json({ texto, provider });
   } catch (e) {
     // Paridad con api/transcribe.ts: mensajes fijos, sin detalles del proveedor.

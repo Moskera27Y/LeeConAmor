@@ -16,6 +16,7 @@ const PalabrasDesordenadas = lazy(() => import('./components/PalabrasDesordenada
 const TrazoLetra = lazy(() => import('./components/TrazoLetra'));
 const MemoriaAuditiva = lazy(() => import('./components/MemoriaAuditiva'));
 import { useVoice } from './hooks/useVoice';
+import IndicadorVoz from './components/IndicadorVoz';
 import BotMessage from './components/BotMessage';
 import WelcomeScreen from './components/WelcomeScreen';
 import ZonaPadres from './components/ZonaPadres';
@@ -81,13 +82,15 @@ function App() {
   const [auth, setAuth] = useState<'cargando' | 'fuera' | 'dentro' | 'local'>(SUPABASE_ACTIVO ? 'cargando' : 'local');
   const [enLinea, setEnLinea] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [masJuego, setMasJuego] = useState<'escucha_elige' | 'silaba_trabada' | 'palabras_desordenadas' | 'trazo' | 'memoria' | 'letras' | null>(null);
+  // Palabritas leídas en voz alta en esta sesión (pestaña "Solo lectura").
+  const [leidasLibres, setLeidasLibres] = useState(0);
   const [finCurso, setFinCurso] = useState(false);
   // Modo sin cuenta: no se intenta bajar/subir nada hasta que el adulto entre.
   const modoLocalRef = useRef(!SUPABASE_ACTIVO);
 
   // Todos los hooks van antes de cualquier return condicional (reglas de React).
   const voiceEnabled = profile?.voiceEnabled ?? true;
-  const { speak, hablarSecuencia, repeat, stop, isSpeaking, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
+  const { speak, hablarSecuencia, repeat, stop, isSpeaking, vozOcupada, restanteSeg, muted, toggleMute, fuente, motivo, necesitaToque, probarVoz, reintentarVoz, usarVozBasica } = useVoice(voiceEnabled);
   // Si el perfil se creó sin voz, la UI debe ofrecer la salida manual en vez
   // de un botón de lectura que no puede sonar.
   const sinVoz = muted || !voiceEnabled;
@@ -98,6 +101,14 @@ function App() {
   const opcionesActividad = useMemo(
     () => (actividadActual ? opcionesEscuchar(actividadActual.actividad.objetivo) : []),
     [actividadActual?.leccion.id, actividadActual?.actividadIndex],
+  );
+
+  // Baraja de "Solo lectura": se mezcla una vez por peque para que no
+  // empiece siempre por la misma palabrita.
+  const barajaLectura = useMemo(
+    () => [...READING_CARDS[profile?.rango || '3-5']].sort(() => Math.random() - 0.5),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile?.id],
   );
 
   // Generar el saludo con el nombre UNA vez por niño (queda guardado para siempre)
@@ -376,6 +387,7 @@ function App() {
     setShowAuth(false);
     setShowExamen(false);
     setFinCurso(false);
+    setLeidasLibres(0);
   };
 
   useEffect(() => {
@@ -487,6 +499,7 @@ function App() {
     setReadingIndex(0);
     setActividadGanada(false);
     setFinCurso(false);
+    setLeidasLibres(0);
     refrescar();
   };
 
@@ -577,7 +590,7 @@ function App() {
 
   const levels = [generarNivel(motor, profile.rango)];
   const etapaInfo = ETAPAS.find((e) => e.id === motor.etapa) || ETAPAS[0];
-  const cards = READING_CARDS[profile.rango];
+  const cards = barajaLectura;
   const card = cards[readingIndex % cards.length];
   // Progreso real del curso guiado (lecciones y actividades).
   const pct = graduado ? 100 : progresoCurso(profile.rango, motor);
@@ -861,6 +874,11 @@ function App() {
         {tab === 'jugar' && !actividadActual && juegoLetras(`${motor.etapa}-${motor.n}`)}
         {tab === 'leer' && (
           <div className="letter-game">
+                {leidasLibres > 0 && (
+                  <div style={{ textAlign: 'center', fontWeight: 800, color: '#764ba2', marginBottom: '0.6rem' }}>
+                    📖 Has leído {leidasLibres} {leidasLibres === 1 ? 'palabrita' : 'palabritas'} con tu voz
+                  </div>
+                )}
                 <BotMessage
                   tipo="info"
                   texto={`Vamos a leer juntitos, ${profile.nombre}. Escucha primero y luego pulsa Leer en voz alta.`}
@@ -878,7 +896,16 @@ function App() {
                   hablarSecuencia={hablarSecuencia}
                   detener={stop}
                   isSpeaking={isSpeaking}
-                  onBien={(p) => setScore((s) => s + p)}
+                  onBien={(p) => {
+                    setScore((s) => s + p);
+                    // Cada 5 palabritas, lluvia de confeti (sin voz: no se
+                    // pisa la felicitación que Léo ya está diciendo).
+                    const n = leidasLibres + 1;
+                    setLeidasLibres(n);
+                    if (n % 5 === 0) {
+                      void petardos({ particleCount: 130, spread: 150, origin: { y: 0.5 } });
+                    }
+                  }}
                   onSiguiente={() => setReadingIndex((i) => (i + 1) % cards.length)}
                 />
                 <div className="game-actions">
@@ -982,6 +1009,9 @@ function App() {
         )}
       </main>
 
+      {/* Espera de voz global: contador mientras Léo habla y "¡Ya!" al terminar */}
+      <IndicadorVoz ocupado={vozOcupada} restante={restanteSeg} />
+
       {showPadres && (
         <ZonaPadres
           nombre={profile.nombre}
@@ -1061,6 +1091,8 @@ function App() {
           onNuevoListo={() => {
             setActividadGanada(false);
             setFinCurso(false);
+            setReadingIndex(0);
+            setLeidasLibres(0);
             refrescar();
             setShowPeques(false);
           }}

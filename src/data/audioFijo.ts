@@ -304,6 +304,7 @@ export const AUDIO_FIJO: Record<string, string> = {
   "¡Casi, Victoria! Vamos juntitos, despacio.": "/audio/n8fa736422092.wav",
   "¡Casi, Ximena! Vamos juntitos, despacio.": "/audio/n8089ebb81f59.wav",
   "¡Dominas el abecedario!": "/audio/f89bf9ac18483.wav",
+  "¡Eso es! Trazaste la letra preciosa.": "/audio/ff29b9be71037.wav",
   "¡Felicidades! Terminaste todo. Ahora lees por tu cuenta.": "/audio/f2ed67108ffa5.wav",
   "¡Felicidades! Vas a leer un cuento completo.": "/audio/l6e6dc34f2ec7.wav",
   "¡Felicidades! Ya sabes las vocales y el abecedario. Eres un gran lector.": "/audio/f0f193ab73f26.wav",

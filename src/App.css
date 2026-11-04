@@ -1074,3 +1074,60 @@ button { font-family: inherit; }
   transform-origin: center;
   animation: trazo-latido 1.3s ease-in-out infinite;
 }
+
+/* Celebración del trazo: aparece con un pequeño rebote */
+@keyframes trazo-fiesta-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.trazo-fiesta {
+  animation: trazo-fiesta-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Indicador global de espera de voz ( contador + ¡Ya puedes tocar! ) */
+.voz-indicador {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 1rem;
+  color: #fff;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(60, 30, 110, 0.35);
+  max-width: min(92vw, 420px);
+}
+.voz-indicador-espera {
+  background: linear-gradient(135deg, #7b6cf0, #9f7aea);
+  animation: voz-indicador-late 1.4s ease-in-out infinite;
+}
+.voz-indicador-ya {
+  background: linear-gradient(135deg, #39b54a, #7ed957);
+  animation: voz-indicador-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.voz-indicador-icono { font-size: 1.3rem; }
+.voz-indicador-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.voz-contador {
+  min-width: 1.9em;
+  height: 1.9em;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  font-size: 1.05rem;
+}
+@keyframes voz-indicador-late {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+@keyframes voz-indicador-pop {
+  0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+}

@@ -203,7 +203,7 @@ export default function LetterGame({
             key={`${letra}-${i}`}
             className={`letter-btn ${resultado === 'correcto' && elegida === letra ? 'selected' : ''} ${resultado === 'incorrecto' && elegida === letra ? 'wrong' : ''}`}
             onClick={() => tocar(letra)}
-            disabled={!!resultado || completado}
+            disabled={!!resultado || completado || isSpeaking}
             style={{ animationDelay: `${i * 80}ms` }}
             aria-label={`Letra ${letra}`}
           >

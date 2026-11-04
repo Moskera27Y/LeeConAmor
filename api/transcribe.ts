@@ -43,14 +43,17 @@ function responderLimite(res: any) {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function parseMultipart(req: any): Promise<{ audioPath: string; mime: string }> {
+function parseMultipart(req: any): Promise<{ audioPath: string; mime: string; esperado: string }> {
   return new Promise((resolve, reject) => {
     const form = new IncomingForm({ maxFileSize: 10 * 1024 * 1024, keepExtensions: true });
-    form.parse(req, (err: any, _fields: any, files: any) => {
+    form.parse(req, (err: any, fields: any, files: any) => {
       if (err) return reject(err);
       const f = files?.audio?.[0] ?? files?.audio ?? files?.file?.[0] ?? files?.file;
       if (!f?.filepath) return reject(Object.assign(new Error('Falta audio'), { status: 400 }));
-      resolve({ audioPath: f.filepath, mime: String(f.mimetype || 'audio/webm') });
+      const esperadoRaw = fields?.esperado;
+      const esperado = String(Array.isArray(esperadoRaw) ? esperadoRaw[0] : esperadoRaw || '')
+        .trim().slice(0, 80);
+      resolve({ audioPath: f.filepath, mime: String(f.mimetype || 'audio/webm'), esperado });
     });
   });
 }
@@ -75,13 +78,16 @@ function mensajePublico(status: number): string {
   return MENSAJES_PUBLICOS[status] || 'No se pudo transcribir el audio. Usa la lectura guiada.';
 }
 
-async function transcribeWhisperApi(audioPath: string, mime: string): Promise<string> {
+async function transcribeWhisperApi(audioPath: string, mime: string, esperado: string): Promise<string> {
   const t0 = Date.now();
   const apiKey = process.env.WHISPER_API_KEY;
   if (!apiKey) throw Object.assign(new Error('Falta WHISPER_API_KEY'), { status: 501 });
   const buf = await fs.promises.readFile(audioPath);
   const form = new FormData();
   form.append('file', new Blob([buf], { type: mime }), 'lectura.webm');
+  // Contexto para la decodificación: sesga el resultado hacia lo que se
+  // espera leer. Si el proveedor lo ignora, no pasa nada.
+  if (esperado) form.append('prompt', esperado);
   const start = await fetch('https://api.whisper-api.com/transcribe', {
     method: 'POST',
     headers: { 'X-API-Key': apiKey },
@@ -109,7 +115,7 @@ async function transcribeWhisperApi(audioPath: string, mime: string): Promise<st
   throw Object.assign(new Error('Timeout esperando transcripcion'), { status: 504 });
 }
 
-async function transcribeOpenAI(audioPath: string): Promise<string> {
+async function transcribeOpenAI(audioPath: string, esperado: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw Object.assign(new Error('Falta OPENAI_API_KEY'), { status: 501 });
   const { default: OpenAI } = await import('openai');
@@ -118,6 +124,9 @@ async function transcribeOpenAI(audioPath: string): Promise<string> {
     file: fs.createReadStream(audioPath) as any,
     model: 'whisper-1',
     language: 'es',
+    // El prompt sesga la transcripción hacia la palabra objetivo.
+    ...(esperado ? { prompt: esperado } : {}),
+    temperature: 0,
   });
   return String(tr?.text || '').trim();
 }
@@ -159,7 +168,9 @@ export default async function handler(req: any, res: any) {
     let lastErr: any = null;
     for (const p of orden) {
       try {
-        const texto = p === 'openai' ? await transcribeOpenAI(audioPath) : await transcribeWhisperApi(audioPath, parsed.mime);
+        const texto = p === 'openai'
+          ? await transcribeOpenAI(audioPath, parsed.esperado)
+          : await transcribeWhisperApi(audioPath, parsed.mime, parsed.esperado);
         if (texto) {
           res.status(200).json({ texto, provider: p });
           return;

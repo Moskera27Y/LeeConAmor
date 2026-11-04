@@ -5,6 +5,7 @@
 export const F_ERROR_CASI = '¡Casi! Prueba otra vez con amor ❤️';
 export const F_ESCUCHA_LEE = 'Te escucho. Lee en voz alta.';
 export const F_BIEN_LECTURA = '¡Qué lindo leíste! 🌟';
+export const F_TRAZO_OK = '¡Eso es! Trazaste la letra preciosa. 💛';
 export const F_NO_ESCUCHE = 'No te oí bien. Probemos otra vez con amor.';
 export const F_BUEN_ESFUERZO = '¡Buen esfuerzo! Vamos juntitos despacio.';
 export const F_BUEN_INTENTO = '¡Buen intento! Una vez más.';
@@ -75,6 +76,7 @@ export const FRASES_FIJAS = [
   '¡Genial!',
   '¡Súper!',
   '¡Hermoso!',
+  '¡Eso es! Trazaste la letra preciosa. 💛',
   '¡Casi! Prueba otra vez con amor ❤️',
   'Te escucho. Lee en voz alta.',
   '¡Qué lindo leíste! 🌟',
